@@ -11,6 +11,10 @@ import torch.nn as nn
 
 
 class TransformerEncoder(nn.Module):
+    """
+        TODO: 우선 원본 코드에 따라 TransformerEncoder를 별도 구현을 진행하였긴 하나,
+        nn.TransformerEncoderLayer를 사용하지 말아야 할 이유를 찾지 못하였음. (layer normalization 위치 조정 가능)
+    """
     def __init__(self, width, num_layer, num_head, dropout=0.0):
         super().__init__()
         
@@ -79,6 +83,7 @@ class ECGEncoder(nn.Module):
         class_token = self.class_token.unsqueeze(0).repeat(self.width, 1, 1)
         x = torch.cat([class_token, x], dim=1)
         x = x + self.positional_embedding.unsqueeze(0)
+        x = nn.LayerNorm(x)
         x = self.transformer(x)
         
         return x
