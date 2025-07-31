@@ -34,14 +34,14 @@ class MultimodalDecoder(nn.Module):
         ])
             
             
-    def forward(self, img, txt):
+    def forward(self, ecg, txt):
         txt = txt.permute(1, 0, 2)  # Q
-        img = img.permute(1, 0, 2)  # K, V
+        ecg = ecg.permute(1, 0, 2)  # K, V
         
         for block in self.blocks:
             x = txt
             q = block["ln_1_q"](txt)
-            kv = block["ln_1_kv"](img)
+            kv = block["ln_1_kv"](ecg)
             
             attn_out = block["attention"](q, kv, kv)[0]
             x = txt + attn_out
