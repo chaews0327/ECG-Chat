@@ -56,7 +56,7 @@ class TransformerEncoder(nn.Module):
 
 
 class ECGEncoder(nn.Module):
-    def __init__(self, lead_num, seq_length, patch_size, width, num_layer, num_head, stride, padding):
+    def __init__(self, lead_num, seq_length, patch_size, width, num_layer, num_head):
         super().__init__()
         
         self.lead_num = lead_num  # 채널
@@ -71,8 +71,6 @@ class ECGEncoder(nn.Module):
             in_channels=lead_num,
             out_channels=width,
             kernel_size=patch_size,
-            stride=stride,
-            padding=padding,
             bias=True)
         self.transformer = TransformerEncoder(width, num_layer, num_head, dropout=0.0)
                 
