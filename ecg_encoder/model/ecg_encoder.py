@@ -20,28 +20,22 @@ class TransformerEncoder(nn.Module):
         
         self.width = width
         self.num_layer = num_layer
-                
-        self.ln_1 = nn.LayerNorm(width)
-        self.attention = nn.MultiHeadAttention(width, num_head)
-        self.ln_2 = nn.LayerNorm(width)
-        self.ff = nn.Sequential(
-            nn.Linear(width, 4*width),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(width, 4*width),
-            nn.Dropout(dropout)
-        )
-        
-        self.blocks = nn.ModuleList([])
-        for _ in range(num_layer):
-            self.blocks.append(
-                nn.ModuleDict({
-                    "ln_1": self.ln_1,
-                    "attention": self.attention,
-                    "ln_2": self.ln_2,
-                    "ff": self.ff
-                })
-            )
+            
+        self.blocks = nn.ModuleList([
+            nn.ModuleDict({
+                "ln_1": nn.LayerNorm(width),
+                "attention": nn.MultiheadAttention(width, num_head, dropout=dropout),
+                "ln_2": nn.LayerNorm(width),
+                "ff": nn.Sequential(
+                    nn.Linear(width, 4*width),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                    nn.Linear(4*width, width),
+                    nn.Dropout(dropout),
+                )
+            })
+            for _ in range(num_layer)
+        ])
         
         
     def forward(self, x):
