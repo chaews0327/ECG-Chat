@@ -33,5 +33,6 @@ class TextEncoder(nn.Module):
         x = self.model(**encoded)
         x = self.proj(x)
         
+        # FIXME: 원본 코드 내 return 형태 확인
         return x
     

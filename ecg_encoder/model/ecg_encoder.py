@@ -93,4 +93,5 @@ class ECGEncoder(nn.Module):
         x = self.norm(x)
         x = self.transformer(x)
         
+        # FIXME: 원본 코드 내 return 형태 확인
         return x
