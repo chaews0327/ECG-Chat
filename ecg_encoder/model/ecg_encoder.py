@@ -62,28 +62,35 @@ class TransformerEncoder(nn.Module):
 
 
 class ECGEncoder(nn.Module):
-    def __init__(self, lead_num, seq_length, patch_size, width, num_layer, num_head, kernel_size, stride, padding):
+    def __init__(self, lead_num, seq_length, patch_size, width, num_layer, num_head, stride, padding):
         super().__init__()
         
-        self.lead_num = lead_num
-        self.seq_length = seq_length
-        self.patch_size = patch_size
+        self.lead_num = lead_num  # 채널
+        self.seq_length = seq_length  # 전체 길이
+        self.patch_size = patch_size  # 커널 크기
         self.num_patch = seq_length // patch_size
-        self.class_token = nn.Parameter(torch.randn(width))
-        self.pos_embedding = nn.Parameter(torch.randn((self.num_patch)))
+        self.class_token = nn.Parameter(torch.randn(1, 1, width))
+        self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patch+1, width))
+        self.norm = nn.LayerNorm(width)  # pre-layer norm 사용
         
-        self.conv1 = nn.Conv1d(in_channels=lead_num, out_channels=width, kernel_size=kernel_size, stride=stride, padding=padding, bias=True)
+        self.conv1 = nn.Conv1d(
+            in_channels=lead_num,
+            out_channels=width,
+            kernel_size=patch_size,
+            stride=stride,
+            padding=padding,
+            bias=True)
         self.transformer = TransformerEncoder(width, num_layer, num_head, dropout=0.0)
                 
     
     def forward(self, x):
-        x = self.conv1(x)
-        x = x.permute(0, 2, 1)
+        x = self.conv1(x)  # (*, width, num_patch)
+        x = x.permute(0, 2, 1)  # (*, num_patch, width)
         
-        class_token = self.class_token.unsqueeze(0).repeat(self.width, 1, 1)
-        x = torch.cat([class_token, x], dim=1)
-        x = x + self.positional_embedding.unsqueeze(0)
-        x = nn.LayerNorm(x)
+        class_token = self.class_token.repeat(x.shape[0], -1, -1)  # (*, 1, width)
+        x = torch.cat([class_token, x], dim=1)  # (*, num_patch+1, width)
+        x = x + self.pos_embedding  # (x, num_patch+1, width)
+        x = self.norm(x)
         x = self.transformer(x)
         
         return x
