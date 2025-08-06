@@ -101,7 +101,7 @@ class ECGEncoder(nn.Module):
             bias=False)
         
         self.class_embedding = nn.Parameter(torch.randn(width))
-        self.pos_embedding = nn.Parameter(torch.randn(self.patch_nums+1, width))
+        self.positional_embedding = nn.Parameter(torch.randn(self.patch_nums+1, width))
         
         self.patch_dropout = nn.Identity()
         self.ln_pre = norm_layer(width)
@@ -124,7 +124,7 @@ class ECGEncoder(nn.Module):
         x = x.permute(0, 2, 1)  # (*, num_patch, width)
         
         x = torch.cat([self.class_embedding.view(1, 1, -1).expand(x.shape[0], -1, -1), x], dim=1)  # (*, num_patch+1, width)
-        x = x + self.pos_embedding  # (x, num_patch+1, width)
+        x = x + self.positional_embedding  # (x, num_patch+1, width)
         x = self.patch_dropout(x)
         x = self.ln_pre(x)
         x = self.transformer(x)
