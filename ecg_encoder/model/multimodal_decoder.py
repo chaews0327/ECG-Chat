@@ -5,51 +5,73 @@ REF: https://docs.pytorch.org/docs/stable/generated/torch.nn.TransformerDecoderL
 """
 
 
+from dataclasses import dataclass
+from .text_encoder import CLIPTextCfg
+
 import torch
 import torch.nn as nn
 
+from .ecg_encoder import TransformerEncoder, ResidualBlock
 
-class MultimodalDecoder(nn.Module):
-    def __init__(self, width, num_layer, num_head, dropout=0.0):
-        super().__init__()
-        
-        self.width = width
-        self.num_layer = num_layer
-            
-        self.blocks = nn.ModuleList([
-            nn.ModuleDict({
-                "ln_1_q": nn.LayerNorm(width),
-                "ln_1_kv": nn.LayerNorm(width),
-                "attention": nn.MultiheadAttention(width, num_head, dropout=dropout),
-                "ln_2": nn.LayerNorm(width),
-                "ff": nn.Sequential(
-                    nn.Linear(width, 4*width),
-                    nn.GELU(),
-                    nn.Dropout(dropout),
-                    nn.Linear(4*width, width),
-                    nn.Dropout(dropout),
-                )
-            })
-            for _ in range(num_layer)
+
+class MultimodalDecoder(TransformerEncoder):
+    def __init__(self, width, layers, heads,
+                 context_length=77,
+                 mlp_ratio=4.0,
+                 ls_init_value=None,
+                 act_layer=nn.GELU,
+                 norm_layer=nn.LayerNorm,
+                 output_dim=512):
+        super().__init__(width, layers, heads, mlp_ratio, ls_init_value, act_layer,norm_layer)
+        self.context_length = context_length
+        self.cross_attn = nn.ModuleList([
+            ResidualBlock(width, heads, mlp_ratio, ls_init_value, act_layer, norm_layer, is_cross_attention=True)
+            for _ in range(layers)
         ])
-            
+
+        self.ln_final = norm_layer(width)
+        self.text_projection = nn.Parameter(torch.empty(width, output_dim))
+        
             
     def forward(self, ecg, txt):
-        txt = txt.permute(1, 0, 2)  # Q
-        ecg = ecg.permute(1, 0, 2)  # K, V
+        text_embs = txt.permute(1, 0, 2)  # Q
+        image_embs = ecg.permute(1, 0, 2)  # K, V
+        seq_len = text_embs.shape[0]
         
-        for block in self.blocks:
-            x = txt
-            q = block["ln_1_q"](txt)
-            kv = block["ln_1_kv"](ecg)
+        for resblock, cross_attn in zip(self.resblocks, self.cross_attn):
+            text_embs = resblock(text_embs)
+            text_embs = cross_attn(text_embs, k_x=image_embs, v_x=image_embs)
             
-            attn_out = block["attention"](q, kv, kv)[0]
-            x = txt + attn_out
-            
-            x_ln = block["ln_2"](x)
-            x = x + block["ff"](x_ln)
-            
-        x = x.permute(1, 0, 2)
+        x = text_embs.permute(1, 0, 2)
+        x = self.ln_final(x)
         
-        # FIXME: 원본 코드 내 return 형태 확인
+        if self.text_projection is not None:
+            x = x @ self.text_projection
+            
         return x
+
+
+@dataclass
+class MultimodalCfg(CLIPTextCfg):
+    mlp_ratio: int = 4
+    dim_head: int = 64
+    heads: int = 8
+    n_queries: int = 256
+    attn_pooler_heads: int = 8
+    
+    
+def build_multimodal_decoder(embed_dim, multimodal_cfg):
+    if isinstance(multimodal_cfg, dict):
+        multimodal_cfg = MultimodalCfg(**multimodal_cfg)
+        
+    decoder = MultimodalDecoder(context_length=multimodal_cfg.context_length,
+        width=multimodal_cfg.width,
+        heads=multimodal_cfg.heads,
+        layers=multimodal_cfg.layers,
+        ls_init_value=multimodal_cfg.ls_init_value,
+        output_dim=embed_dim,
+        act_layer=nn.GELU,
+        norm_layer=nn.LayerNorm,
+    )
+
+    return decoder
