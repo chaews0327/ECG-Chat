@@ -37,6 +37,13 @@ def parse_args(args):
         action="store_true",
         help="Use Wave Features Enhanced Prompt",
     )
+    
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to model configuration"
+    )
 
     parser.add_argument(
         "--ptbxl-path",

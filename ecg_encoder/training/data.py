@@ -123,9 +123,9 @@ def get_wave_info(data):
 
 
 def load_ptbxl(path, is_train):
-    Y = pd.read_csv('../preprocess/diagnostics_feature.csv', index_col='ECG_ID')
+    Y = pd.read_csv('preprocess/diagnostics_feature.csv', index_col='ECG_ID')
 
-    test_fold = 10
+    test_fold = 0
     if is_train:
         Y = Y[Y.strat_fold != test_fold]
     else:
