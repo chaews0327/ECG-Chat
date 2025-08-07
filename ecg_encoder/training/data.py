@@ -131,13 +131,13 @@ def load_ptbxl(path, is_train):
     else:
         Y = Y[Y.strat_fold == test_fold]
 
-    X_rel = Y.ECG_ID.values
+    X_rel = Y.index.values
     y = Y.Label.values
     X = [os.path.join(path, str(x)+'.pkl') for x in X_rel]
 
     texts = []
     for i in range(len(Y)):
-        text = y[i]
+        text = str(y[i])
         texts.append(text + get_wave_info(Y.iloc[i]))
 
     return X, texts
@@ -145,7 +145,8 @@ def load_ptbxl(path, is_train):
 
 def make_dataloader(args, dataset, is_train, dist_sampler=True, drop_last=None):
     num_samples = len(dataset)
-    sampler = DistributedSampler(dataset) if args.distributed and dist_sampler else None
+    # sampler = DistributedSampler(dataset) if args.distributed and dist_sampler else None  # 분산학습 진행 X
+    sampler = None
     shuffle = is_train and sampler is None
     drop_last = is_train if drop_last is None else drop_last
     dataloader = DataLoader(
