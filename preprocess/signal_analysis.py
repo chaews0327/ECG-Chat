@@ -102,7 +102,7 @@ def preprocess(args):
 
     data_dict = calculate_waveforms(data_dir=DATA_DIR, path_list=path_list, sampling_rate=250)
     df = pd.DataFrame(data_dict)
-    df["strat_fold"] = np.arange(len(df)) % 10  # 10-fold
+    df["strat_fold"] = np.arange(len(df)) % 5  # 10-fold
     df.to_csv(os.path.join(SAVE_DIR, "diagnostics_feature.csv"))
 
 
