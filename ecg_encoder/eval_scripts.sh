@@ -4,4 +4,5 @@ python3 -m ecg_encoder.training.main \
     --ptbxl-path="./data" \
     --resume "./ecg_encoder/checkpoints/epoch_10.pt" \
     --lr 1e-4 \
-    --wd 0.1
+    --wd 0.1 \
+    --eval
