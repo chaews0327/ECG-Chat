@@ -3,15 +3,14 @@ REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/training/train.
 """
 
 import logging
-from torch.cuda.amp import autocast
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 
-def test(model, data, epoch, args):
+def test(model, data, epoch, args, tokenizer=None):
     metrics = {}
-    device = torch.device(args.device)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     model.eval()
 
     dataloader = data['test'].dataloader
@@ -26,16 +25,15 @@ def test(model, data, epoch, args):
             ecgs, texts = batch
             ecgs = ecgs.to(device)
             texts = texts.to(device)
-            with autocast(device_type=device, dtype=torch.float16):
-                model_out = model(ecgs, texts)
-                ecg_features = model_out["ecg_features"]
-                text_features = model_out["text_features"]
-                logit_scale = model_out["logit_scale"]
-                # features are accumulated in CPU tensors, otherwise GPU memory exhausted quickly
-                # however, system RAM is easily exceeded and compute time becomes problematic
-                all_ecg_features.append(ecg_features.cpu())
-                all_text_features.append(text_features.cpu())
-                batch_size = ecgs.shape[0]
+
+            model_out = model(ecgs, texts)
+            ecg_features = model_out["ecg_features"]
+            text_features = model_out["text_features"]
+            logit_scale = model_out["logit_scale"]
+            
+            all_ecg_features.append(ecg_features.cpu())
+            all_text_features.append(text_features.cpu())
+            batch_size = ecgs.shape[0]
 
             num_samples += batch_size
 
@@ -43,7 +41,6 @@ def test(model, data, epoch, args):
             ecg_features=torch.cat(all_ecg_features),
             text_features=torch.cat(all_text_features),
             logit_scale=logit_scale.cpu(),
-            set_name="hyperkalemia"+"_"
         )
         metrics.update(
             {**test_metrics, "epoch": epoch, "num_samples": num_samples}
@@ -53,7 +50,7 @@ def test(model, data, epoch, args):
         f"Test Epoch: {epoch} "
         + "\t".join([f"{k}: {round(v, 4):.4f}" for k, v in metrics.items()])
     )
-
+    
     return metrics
 
 
