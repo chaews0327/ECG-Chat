@@ -1,6 +1,9 @@
 import torch
 from typing import List, Optional, Union
 
+import ftfy
+import html
+
 
 DEFAULT_CONTEXT_LENGTH = 77  # default context length for OpenAI CLIP
 
@@ -40,8 +43,17 @@ class HFTokenizer:
         self.strip_sep_token = strip_sep_token
         self.tokenizer.add_tokens(["<s>", "</s>"])
 
+
     def save_pretrained(self, dest):
         self.tokenizer.save_pretrained(dest)
+
+
+    def clean_text(self, text):
+        text = ftfy.fix_text(text)
+        text = html.unescape(html.unescape(text))
+        text = " ".join(text.strip().split())    
+        return text.strip()
+    
 
     def __call__(self, texts: Union[str, List[str]], context_length: Optional[int] = None) -> torch.Tensor:
         # same cleaning as for default tokenizer, except lowercasing
@@ -52,7 +64,8 @@ class HFTokenizer:
         context_length = context_length or self.context_length
         assert context_length, 'Please set a valid context length in class init or call.'
 
-        texts = [self.clean_fn(text) for text in texts]
+        texts = [self.clean_text(text) for text in texts]
+        
         input_ids = self.tokenizer.batch_encode_plus(
             texts,
             return_tensors='pt',
