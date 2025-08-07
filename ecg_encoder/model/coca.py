@@ -49,7 +49,7 @@ class CoCa(nn.Module):
                 ecg_embs=None,
                 output_labels=True):
         if (ecg_latent or ecg_embs) is None:
-            ecg_latent, token_embs = self.ecg(ecg)
+            ecg_latent, ecg_embs = self.ecg(ecg)
             ecg_latent = F.normalize(ecg_latent, dim=-1)
 
         if text is None:

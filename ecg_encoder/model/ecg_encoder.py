@@ -37,7 +37,7 @@ class ResidualBlock(nn.Module):
     def attention(self, q, k=None, v=None, attn_mask=None):
         # cross attention과 self attention이 함께 동작할 수 있도록
         k = k if k is not None else q
-        v = v if v is not None else v
+        v = v if v is not None else q
         attn_mask = attn_mask if attn_mask is not None else None
         
         return self.attn(q, k, v, need_weights=False, attn_mask=attn_mask)[0]
@@ -69,7 +69,7 @@ class TransformerEncoder(nn.Module):
         ])
         
         
-    def forward(self, x, attn_mask):
+    def forward(self, x, attn_mask=None):
         x = x.transpose(0, 1)
                 
         for block in self.resblocks:
@@ -137,6 +137,9 @@ class ECGEncoder(nn.Module):
         
         if self.proj is not None:
             pooled = pooled @ self.proj
+            
+        if self.output_tokens:
+            return pooled, tokens
             
         return pooled
 

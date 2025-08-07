@@ -40,7 +40,7 @@ class MultimodalDecoder(TransformerEncoder):
         
         for resblock, cross_attn in zip(self.resblocks, self.cross_attn):
             text_embs = resblock(text_embs)
-            text_embs = cross_attn(text_embs, k_x=image_embs, v_x=image_embs)
+            text_embs = cross_attn(text_embs, k=image_embs, v=image_embs)
             
         x = text_embs.permute(1, 0, 2)
         x = self.ln_final(x)
