@@ -38,7 +38,8 @@ class ECGTextDataset(Dataset):
             data = pickle.load(f)['original']['ecg'][0]
         data[np.isnan(data)] = 0
         data[np.isinf(data)] = 0
-        data = torch.Tensor(np.transpose(data, (1, 0)).astype(np.float32))
+        # data = torch.Tensor(np.transpose(data, (1, 0)).astype(np.float32))
+        data = torch.Tensor(data.astype(np.float32))
         data = torch.unsqueeze(data, 0)
 
         if self.transforms is not None:
