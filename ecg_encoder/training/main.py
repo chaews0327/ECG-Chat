@@ -36,7 +36,6 @@ def natural_key(string_):
 
 def main(args):
     args = parse_args(args)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     random_seed(args.seed, 0)
     model_kwargs = {}
@@ -87,15 +86,13 @@ def main(args):
         tokenizer=tokenizer,
     )
     assert len(data), 'At least one train or eval dataset must be specified.'
-
-    # determine if this worker should save logs and checkpoints. only do so if it is rank == 0
-    writer = None
-
+    
     # Evaluate.
     if args.eval:
-        test(model, data, start_epoch, args, tb_writer=writer, tokenizer=tokenizer)
+        test(model, data, start_epoch, args, tokenizer=tokenizer)
         return
     
     
 if __name__=="__main__":
+    logging.basicConfig(level=logging.INFO)
     main(sys.argv[1:])
