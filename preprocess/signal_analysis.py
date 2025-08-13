@@ -17,22 +17,25 @@ import os
 from tqdm import tqdm
 
 
-def get_analysis_from_feature(path, sampling_rate):
+def get_analysis_from_feature(path, mode, sampling_rate):
     """
     pkl 파일 내의 추출되어 있는 feature를 평균 처리 후 return
     """
     with open(path, 'rb') as f:
         ecg_dict = pickle.load(f)
 
-    label = ecg_dict['original']['prob'][0]
-    rr = ecg_dict['original']['feature']['II.r.intvs']  # lead.r.intvs
-    pr = ecg_dict['original']['feature']['II.pr.intvs']  # lead.pr.intvs / summary.pr_intv
-    qrs = ecg_dict['original']['feature']['II.qrs.durs']  # lead.qrs.durs / summary.qrs_dur
-    qt = ecg_dict['original']['feature']['summary.qt_intv']  # only summary -> (t.offsets - r.onsets)
-    qtc = ecg_dict['original']['feature']['summary.qt_corrected']  # only summary -> qt/np.sqrt(rr)
-    pp = ecg_dict['original']['feature']['II.p.peaks']  # lead.p.peaks
-    rp = ecg_dict['original']['feature']['II.r.peaks']  # lead.r.peaks
-    tp = ecg_dict['original']['feature']['II.t.peaks']  # lead.t.peaks
+    if mode == "original":
+        label = ecg_dict[mode]['prob'][0]
+    else:
+        label = ecg_dict[mode]['prob'][-1]
+    rr = ecg_dict[mode]['feature']['II.r.intvs']  # lead.r.intvs
+    pr = ecg_dict[mode]['feature']['II.pr.intvs']  # lead.pr.intvs / summary.pr_intv
+    qrs = ecg_dict[mode]['feature']['II.qrs.durs']  # lead.qrs.durs / summary.qrs_dur
+    qt = ecg_dict[mode]['feature']['summary.qt_intv']  # only summary -> (t.offsets - r.onsets)
+    qtc = ecg_dict[mode]['feature']['summary.qt_corrected']  # only summary -> qt/np.sqrt(rr)
+    pp = ecg_dict[mode]['feature']['II.p.peaks']  # lead.p.peaks
+    rp = ecg_dict[mode]['feature']['II.r.peaks']  # lead.r.peaks
+    tp = ecg_dict[mode]['feature']['II.t.peaks']  # lead.t.peaks
         
     return label, int(dropna(rr)), int(dropna(pr)), int(dropna(qrs)), int(dropna(qt)), \
             int(dropna(qtc)), int(dropna(pp)), int(dropna(rp)), int(dropna(tp))
@@ -62,6 +65,7 @@ def calculate_waveforms(data_dir, path_list, sampling_rate=500):
     """
     data_dict = {
         'ECG_ID': [],  # ECG 해시 값
+        'Mode': [],  # Ori/Pos/Neg
         'Label': [],  # Hyperkalemia 라벨 (확률)
         'RR_Interval': [],
         'PR_Interval': [],
@@ -75,18 +79,20 @@ def calculate_waveforms(data_dir, path_list, sampling_rate=500):
 
     for i in tqdm(range(len(path_list))):
         path = path_list[i]
-        label, rr, pr, qrs, qt, qtc, pp, rp, tp = get_analysis_from_feature(os.path.join(data_dir, path), sampling_rate)
+        for mode in ['original', 'positive', 'negative']:
+            label, rr, pr, qrs, qt, qtc, pp, rp, tp = get_analysis_from_feature(os.path.join(data_dir, path), mode, sampling_rate)
         
-        data_dict['ECG_ID'].append(os.path.splitext(path)[0])
-        data_dict['Label'].append(label)
-        data_dict['RR_Interval'].append(rr)
-        data_dict['PR_Interval'].append(pr)
-        data_dict['QRS_Complex'].append(qrs)
-        data_dict['QT_Interval'].append(qt)
-        data_dict['QTc_Interval'].append(qtc)
-        data_dict['P_Wave_Peak'].append(pp)
-        data_dict['R_Wave_Peak'].append(rp)
-        data_dict['T_Wave_Peak'].append(tp)
+            data_dict['ECG_ID'].append(os.path.splitext(path)[0])
+            data_dict['Mode'].append(mode)
+            data_dict['Label'].append(label)
+            data_dict['RR_Interval'].append(rr)
+            data_dict['PR_Interval'].append(pr)
+            data_dict['QRS_Complex'].append(qrs)
+            data_dict['QT_Interval'].append(qt)
+            data_dict['QTc_Interval'].append(qtc)
+            data_dict['P_Wave_Peak'].append(pp)
+            data_dict['R_Wave_Peak'].append(rp)
+            data_dict['T_Wave_Peak'].append(tp)
         
     return data_dict
 

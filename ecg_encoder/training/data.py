@@ -5,7 +5,6 @@ REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/training/data.p
 
 
 import os
-import wfdb
 import pickle
 from dataclasses import dataclass
 from multiprocessing import Value
@@ -18,27 +17,26 @@ from torch.utils.data.distributed import DistributedSampler
 
 
 class ECGTextDataset(Dataset):
-    def __init__(self, path, texts, transforms=None, tokenizer=None, is_train=True):
+    def __init__(self, path, mode, texts, transforms=None, tokenizer=None, is_train=True):
         super(ECGTextDataset, self).__init__()
         self.transforms = transforms
         self.tokenizer = tokenizer
         self.path = path
+        self.mode = mode
         self.y = texts
         self.is_train = is_train
 
     def tokenize(self, text):
         text = text.lower()
-        encoded = self.tokenizer(
-            text,
-        )
+        encoded = self.tokenizer(text)
         return encoded[0]
 
     def load_data(self, idx):
         with open(self.path[idx], 'rb') as f:
-            data = pickle.load(f)['original']['ecg'][0]
+            data = pickle.load(f)[self.mode[idx]]['ecg'][0]
         data[np.isnan(data)] = 0
         data[np.isinf(data)] = 0
-        # data = torch.Tensor(np.transpose(data, (1, 0)).astype(np.float32))
+
         data = torch.Tensor(data.astype(np.float32))
         data = torch.unsqueeze(data, 0)
 
@@ -123,16 +121,16 @@ def get_wave_info(data):
     return text_describe
 
 
-def load_ptbxl(path, is_train):
-    Y = pd.read_csv('preprocess/diagnostics_feature.csv', index_col='ECG_ID')
+def load_ptbxl(path, is_train, test_fold=0):
+    Y = pd.read_csv('preprocess/diagnostics_feature.csv')
 
-    test_fold = 0
     if is_train:
         Y = Y[Y.strat_fold != test_fold]
     else:
         Y = Y[Y.strat_fold == test_fold]
 
-    X_rel = Y.index.values
+    X_rel = Y.ECG_ID.values
+    modes = Y.Mode.values
     y = Y.Label.values
     X = [os.path.join(path, str(x)+'.pkl') for x in X_rel]
 
@@ -141,7 +139,7 @@ def load_ptbxl(path, is_train):
         text = str(y[i])
         texts.append(text + get_wave_info(Y.iloc[i]))
 
-    return X, texts
+    return X, modes, texts
 
 
 def make_dataloader(args, dataset, is_train, dist_sampler=True, drop_last=None):
@@ -169,13 +167,13 @@ def get_all_ecg_text_dataset(args, preprocess_train, preprocess_test, epoch=0, t
     datasets = {}
     # X_train, text_train, X_val, text_val, m_X_test, m_text_test\
     #    = load_mimic_iv_ecg(args.mimic_iv_ecg_path, wfep=args.wfep)
-    X_train, text_train = load_ptbxl(args.ptbxl_path, is_train=True)  # Train/Test split하도록 변경
-    train_dataset = ECGTextDataset(X_train, text_train, transforms=preprocess_train, tokenizer=tokenizer,
+    X_train, mode_train, text_train = load_ptbxl(args.ptbxl_path, is_train=True)  # Train/Test split하도록 변경
+    train_dataset = ECGTextDataset(X_train, mode_train, text_train, transforms=preprocess_train, tokenizer=tokenizer,
                                    is_train=True)
     datasets['train'] = make_dataloader(args, train_dataset, is_train=True)
 
-    p_X_test, p_text_test = load_ptbxl(args.ptbxl_path, is_train=False)
-    ptbxl_test_dataset = ECGTextDataset(p_X_test, p_text_test, transforms=preprocess_test,
+    X_test, mode_test, text_test = load_ptbxl(args.ptbxl_path, is_train=False)
+    ptbxl_test_dataset = ECGTextDataset(X_test, mode_test, text_test, transforms=preprocess_test,
                                         tokenizer=tokenizer, is_train=False)
     datasets['test'] = make_dataloader(args, ptbxl_test_dataset, is_train=False, dist_sampler=False)
     return datasets
