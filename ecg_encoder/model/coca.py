@@ -1,6 +1,7 @@
 """
 REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/coca_model.py
 하이퍼 파라미터의 설정은 다음 링크를 따름: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/model_configs/coca_ViT-B-32.json
+함수 내의 Input/Output은 원본 코드의 설정을 그대로 따라감
 """
 
 
@@ -17,14 +18,14 @@ from ecg_encoder.model.multimodal_decoder import MultimodalCfg, build_multimodal
 
 class CoCa(nn.Module):
     def __init__(self, cfg,
-                 quick_gelu=False,
                  init_logit_scale=np.log(1 / 0.07),
                  init_logit_bias=None,
                  pad_id=0):
         super().__init__()
         
         with open(cfg, "r") as f:
-            config = json.load(f)
+            config = json.load(f)  # 설정 불러오기
+            
         embed_dim = config['embed_dim']
         ecg_cfg = CLIPEcgCfg(**config['ecg_cfg'])
         text_cfg = CLIPTextCfg(**config['text_cfg'])
@@ -48,6 +49,7 @@ class CoCa(nn.Module):
                 ecg_latent=None,
                 ecg_embs=None,
                 output_labels=True):
+        
         if (ecg_latent or ecg_embs) is None:
             ecg_latent, ecg_embs = self.ecg(ecg)
             ecg_latent = F.normalize(ecg_latent, dim=-1)

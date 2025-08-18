@@ -1,5 +1,4 @@
 """
-Transformer: Pretrained
 REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/hf_model.py
 REF: https://huggingface.co/ncbi/MedCPT-Query-Encoder
 """
@@ -8,9 +7,8 @@ REF: https://huggingface.co/ncbi/MedCPT-Query-Encoder
 from typing import Optional
 from dataclasses import dataclass
 
-import torch
 import torch.nn as nn
-from transformers import AutoModel, AutoTokenizer, AutoConfig, PretrainedConfig
+from transformers import AutoModel, AutoTokenizer, AutoConfig
 from .hf_configs import arch_dict
 
 
@@ -18,18 +16,11 @@ class MeanPooler(nn.Module):
     def forward(self, x, attn_mask):
         masked_output = x.last_hidden_state * attn_mask.unsqueeze(-1)
         return masked_output.sum(dim=1) / attn_mask.sum(-1, keepdim=True)
-    
-    
-_POOLERS = {
-    'mean_pooler': MeanPooler,
-}
 
 
 class TextEncoder(nn.Module):
     def __init__(self, model_name, output_dim,
-                 config=None,
                  pooler_type=None,
-                 proj_type=None,
                  pretrained=True,
                  output_tokens=False):
         super().__init__()
@@ -50,7 +41,7 @@ class TextEncoder(nn.Module):
         self.vocab_size = getattr(self.config, 'vocab_size', 0)
         self.context_length = getattr(self.config, 'max_position_embeddings', 0)
 
-        self.pooler = _POOLERS[pooler_type]()
+        self.pooler = MeanPooler()
 
         d_model = getattr(self.config, arch_dict[self.config.model_type]["config_names"]["width"])
         hidden_size = (d_model + output_dim) // 2
@@ -72,7 +63,6 @@ class TextEncoder(nn.Module):
         pooled_out = self.pooler(out, attn_mask)
         projected = self.proj(pooled_out)
 
-        seq_len = out.last_hidden_state.shape[1]
         tokens = out.last_hidden_state
         
         if self.output_tokens:

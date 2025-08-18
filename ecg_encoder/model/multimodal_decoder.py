@@ -1,5 +1,4 @@
 """
-Transformer Decoder: Multimodal (Signal, Text)
 REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/transformer.py
 REF: https://docs.pytorch.org/docs/stable/generated/torch.nn.TransformerDecoderLayer.html
 """

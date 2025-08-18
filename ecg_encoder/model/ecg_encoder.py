@@ -1,5 +1,4 @@
 """
-1D ViT: ECG (Signal) Encoder
 REF: https://github.com/google-research/vision_transformer/blob/main/vit_jax/models_vit.py
 REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/transformer.py
 이외 블로그 구현 등 참고
@@ -15,7 +14,7 @@ import torch.nn as nn
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, d_model, num_head, mlp_ratio, ls_init_value, act_layer, norm_layer, is_cross_attention=False):
+    def __init__(self, d_model, num_head, mlp_ratio, act_layer, norm_layer, is_cross_attention=False):
         super().__init__()
         
         self.ln_1 = norm_layer(d_model)
@@ -81,9 +80,8 @@ class TransformerEncoder(nn.Module):
 
 class ECGEncoder(nn.Module):
     def __init__(self, seq_length, patch_size, lead_num, width, layers, heads, mlp_ratio, ls_init_value,
-            patch_dropout=0, attentional_pool=False, attn_pooler_queries=256, attn_pooler_heads=8,
-            pos_embed_type='learnable', no_ln_pre=False, final_ln_after_pool=False, pool_type='tok',
-            output_tokens=False, output_dim=512, act_layer=nn.GELU, norm_layer=nn.LayerNorm):
+            final_ln_after_pool=False, pool_type='tok', output_tokens=False, output_dim=512,
+            act_layer=nn.GELU, norm_layer=nn.LayerNorm):
         super().__init__()
         self.output_tokens = output_tokens
         self.seq_length = seq_length  # 전체 길이
