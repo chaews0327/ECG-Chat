@@ -14,7 +14,7 @@ import torch.nn as nn
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, d_model, num_head, mlp_ratio, act_layer, norm_layer, is_cross_attention=False):
+    def __init__(self, d_model, num_head, mlp_ratio, ls_init_value, act_layer, norm_layer, is_cross_attention=False):
         super().__init__()
         
         self.ln_1 = norm_layer(d_model)
@@ -180,12 +180,6 @@ def build_ecg_encoder(embed_dim, ecg_cfg):
         heads=ecg_heads,
         mlp_ratio=ecg_cfg.mlp_ratio,
         ls_init_value=ecg_cfg.ls_init_value,
-        patch_dropout=ecg_cfg.patch_dropout,
-        attentional_pool=ecg_cfg.attentional_pool,
-        attn_pooler_queries=ecg_cfg.attn_pooler_queries,
-        attn_pooler_heads=ecg_cfg.attn_pooler_heads,
-        pos_embed_type=ecg_cfg.pos_embed_type,
-        no_ln_pre=ecg_cfg.no_ln_pre,
         final_ln_after_pool=ecg_cfg.final_ln_after_pool,
         pool_type=ecg_cfg.pool_type,
         output_tokens=ecg_cfg.output_tokens,

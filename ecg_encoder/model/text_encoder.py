@@ -106,7 +106,6 @@ def build_text_encoder(embed_dim, text_cfg):
     return TextEncoder(
         text_cfg.hf_model_name,
         output_dim=embed_dim,
-        proj_type=text_cfg.hf_proj_type,
         pooler_type=text_cfg.hf_pooler_type,
         pretrained=text_cfg.hf_model_pretrained,
         output_tokens=text_cfg.output_tokens,

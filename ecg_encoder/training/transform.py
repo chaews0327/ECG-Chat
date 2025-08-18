@@ -42,11 +42,6 @@ class Resize(nn.Module):
 
 
 class Compose:
-    """
-    Data augmentation module that transforms any
-    given data example with a chain of augmentations.
-    """
-
     def __init__(self, transforms):
         self.transforms = transforms
 
@@ -86,11 +81,10 @@ class PreprocessCfg:
         return self.num_channels, self.seq_length
     
 
-def ecg_transform(cfg: PreprocessCfg):
+def ecg_transform(cfg):
     ecg_size = ecg_size=(cfg.num_channels, cfg.seq_length)
     mean=cfg.mean
     std=cfg.std
-    resize_mode=cfg.resize_mode
         
     if mean is not None:
         normalize = Normalize(mean=mean, std=std)
@@ -98,7 +92,6 @@ def ecg_transform(cfg: PreprocessCfg):
         normalize = Normalize(mean=ECG_MEAN, std=ECG_STD)
     resize = Resize(seq_length=ecg_size[1])
 
-    
     transforms = []
     transforms.extend([
         normalize,

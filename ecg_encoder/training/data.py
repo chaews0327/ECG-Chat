@@ -51,7 +51,7 @@ class ECGTextDataset(Dataset):
     def __getitem__(self, idx):
         x = self.load_data(idx)
         y = self.y[idx]
-        return x, self.tokenize(y)
+        return x, self.tokenize(y), y
 
 
 class ECGValDataset(ECGTextDataset):
@@ -124,7 +124,9 @@ def get_wave_info(data):
 def load_ptbxl(path, is_train, test_fold=0):
     Y = pd.read_csv('preprocess/diagnostics_feature.csv')
 
-    if is_train:
+    if test_fold == -1:
+        pass
+    elif is_train:
         Y = Y[Y.strat_fold != test_fold]
     else:
         Y = Y[Y.strat_fold == test_fold]
@@ -136,18 +138,26 @@ def load_ptbxl(path, is_train, test_fold=0):
 
     texts = []
     for i in range(len(Y)):
-        text = str(y[i])
+        text = f" Hyperkalemia Score: {y[i]}"
         texts.append(text + get_wave_info(Y.iloc[i]))
+        # texts.append(get_wave_info(Y.iloc[i]))  # Hyperkalemia label 없이
 
     return X, modes, texts
 
 
-def make_dataloader(args, dataset, is_train, dist_sampler=True, drop_last=None):
+def collate_fn(batch):
+        ecgs, tokens, raw_texts = zip(*batch)
+        ecgs = torch.stack(ecgs, dim=0)
+        tokens = torch.stack(tokens, dim=0)
+        return ecgs, tokens, list(raw_texts)
+
+
+def make_dataloader(args, dataset, is_train, drop_last=None):
     num_samples = len(dataset)
-    # sampler = DistributedSampler(dataset) if args.distributed and dist_sampler else None  # 분산학습 진행 X
     sampler = None
     shuffle = is_train and sampler is None
     drop_last = is_train if drop_last is None else drop_last
+    
     dataloader = DataLoader(
         dataset,
         batch_size=args.batch_size,
@@ -156,6 +166,7 @@ def make_dataloader(args, dataset, is_train, dist_sampler=True, drop_last=None):
         pin_memory=True,
         sampler=sampler,
         drop_last=drop_last,
+        collate_fn=collate_fn
     )
     dataloader.num_samples = num_samples
     dataloader.num_batches = len(dataloader)
@@ -165,17 +176,15 @@ def make_dataloader(args, dataset, is_train, dist_sampler=True, drop_last=None):
 
 def get_all_ecg_text_dataset(args, preprocess_train, preprocess_test, epoch=0, tokenizer=None):
     datasets = {}
-    # X_train, text_train, X_val, text_val, m_X_test, m_text_test\
-    #    = load_mimic_iv_ecg(args.mimic_iv_ecg_path, wfep=args.wfep)
     X_train, mode_train, text_train = load_ptbxl(args.ptbxl_path, is_train=True)  # Train/Test split하도록 변경
     train_dataset = ECGTextDataset(X_train, mode_train, text_train, transforms=preprocess_train, tokenizer=tokenizer,
                                    is_train=True)
     datasets['train'] = make_dataloader(args, train_dataset, is_train=True)
 
-    X_test, mode_test, text_test = load_ptbxl(args.ptbxl_path, is_train=False)
-    ptbxl_test_dataset = ECGTextDataset(X_test, mode_test, text_test, transforms=preprocess_test,
+    X_test, mode_test, text_test = load_ptbxl(args.ptbxl_path, is_train=False, test_fold=-1)
+    test_dataset = ECGTextDataset(X_test, mode_test, text_test, transforms=preprocess_test,
                                         tokenizer=tokenizer, is_train=False)
-    datasets['test'] = make_dataloader(args, ptbxl_test_dataset, is_train=False, dist_sampler=False)
+    datasets['test'] = make_dataloader(args, test_dataset, is_train=False)
     return datasets
 
 
