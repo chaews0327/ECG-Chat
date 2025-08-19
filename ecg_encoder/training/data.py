@@ -5,12 +5,13 @@ REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/training/data.p
 
 
 import os
-import pickle
+import wfdb
 from dataclasses import dataclass
 from multiprocessing import Value
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -32,8 +33,7 @@ class ECGTextDataset(Dataset):
         return encoded[0]
 
     def load_data(self, idx):
-        with open(self.path[idx], 'rb') as f:
-            data = pickle.load(f)[self.mode[idx]]['ecg'][0]
+        data = wfdb.rdsamp(self.path[idx])[0]
         data[np.isnan(data)] = 0
         data[np.isinf(data)] = 0
 
@@ -121,28 +121,74 @@ def get_wave_info(data):
     return text_describe
 
 
-def load_ptbxl(path, is_train, test_fold=0):
-    Y = pd.read_csv('preprocess/diagnostics_feature.csv')
+def load_mimic_iv_ecg(path, wfep):
+    db = pd.read_csv(os.path.join(path, 'machine_measurements.csv')).set_index('study_id')
+    record_list = pd.read_csv('preprocess/mimic_new_record_list.csv').set_index('study_id')
+    all_idx = record_list.index.values
+    
+    # train/test split
+    train_idx, test_idx = train_test_split(all_idx, test_size=0.1, random_state=42)
+    val_idx, test_idx = train_test_split(test_idx, test_size=0.5, random_state=42)
+        
+    def data(index_list):
+        reports = []
+        X = []
+        n_reports = 18
+        bad_reports = ["--- Warning: Data quality may affect interpretation ---",
+                       "--- Recording unsuitable for analysis - please repeat ---",
+                       "Analysis error",
+                       "conduction defect",
+                       "*** report made without knowing patient's sex ***",
+                       "--- Suspect arm lead reversal",
+                       "--- Possible measurement error ---",
+                       "--- Pediatric criteria used ---",
+                       "--- Suspect limb lead reversal",
+                       "-------------------- Pediatric ECG interpretation --------------------",
+                       "Lead(s) unsuitable for analysis:",
+                       "LEAD(S) UNSUITABLE FOR ANALYSIS:",
+                       "PACER DETECTION SUSPENDED DUE TO EXTERNAL NOISE-REVIEW ADVISED",
+                       "Pacer detection suspended due to external noise-REVIEW ADVISED"]
 
-    if test_fold == -1:
-        pass
-    elif is_train:
-        Y = Y[Y.strat_fold != test_fold]
-    else:
-        Y = Y[Y.strat_fold == test_fold]
+        for i in index_list:
+            row = record_list.loc[i]
+            m_row = db.loc[i]
+            report_txt = ""
+            for j in range(n_reports):
+                report = m_row[f"report_{j}"]
+                if type(report) == str:
+                    is_bad = False
+                    for bad_report in bad_reports:
+                        if report.find(bad_report) > -1:
+                            is_bad = True
+                            break
+                    report_txt += (report + " ") if not is_bad else ""
+            if report_txt == "":
+                continue
+            report_txt = report_txt[:-1].lower()
+            report_txt = (report_txt.replace("---", "")
+                          .replace("***", "")
+                          .replace(" - age undetermined", ""))
 
-    X_rel = Y.ECG_ID.values
-    modes = Y.Mode.values
-    y = Y.Label.values
-    X = [os.path.join(path, str(x)+'.pkl') for x in X_rel]
-
-    texts = []
-    for i in range(len(Y)):
-        text = f" Hyperkalemia Score: {y[i]}"
-        texts.append(text + get_wave_info(Y.iloc[i]))
-        # texts.append(get_wave_info(Y.iloc[i]))  # Hyperkalemia label 없이
-
-    return X, modes, texts
+            report_txt = (report_txt.replace('rbbb', 'right bundle branch block')
+                          .replace('lbbb', 'light bundle branch block')
+                          .replace('lvh', 'left ventricle hypertrophy')
+                          .replace("mi", "myocardial infarction")
+                          .replace("lafb", "left anterior fascicular block")
+                          .replace("pvc(s)", "ventricular premature complex")
+                          .replace("pvcs", "ventricular premature complex")
+                          .replace("pac(s)", "atrial premature complex")
+                          .replace("pacs", "atrial premature complex"))
+            if wfep:
+                report_txt = report_txt + get_wave_info(row)
+            reports.append(report_txt)
+            X.append(os.path.join(path, row["path"]))
+        return X, reports
+    
+    train_x, train_y = data(train_idx)
+    val_x, val_y = data(val_idx)
+    test_x, test_y = data(test_idx)
+    
+    return train_x, train_y, val_x, val_y, test_x, test_y
 
 
 def collate_fn(batch):
@@ -176,15 +222,16 @@ def make_dataloader(args, dataset, is_train, drop_last=None):
 
 def get_all_ecg_text_dataset(args, preprocess_train, preprocess_test, epoch=0, tokenizer=None):
     datasets = {}
-    X_train, mode_train, text_train = load_ptbxl(args.ptbxl_path, is_train=True)  # Train/Test split하도록 변경
-    train_dataset = ECGTextDataset(X_train, mode_train, text_train, transforms=preprocess_train, tokenizer=tokenizer,
-                                   is_train=True)
+    X_train, Y_train, X_val, Y_val, X_test, Y_test = load_mimic_iv_ecg(args.mimic_iv_ecg_path, wfep=args.wfep)
+    train_dataset = ECGTextDataset(X_train, Y_train, transforms=preprocess_train, tokenizer=tokenizer, is_train=True)
     datasets['train'] = make_dataloader(args, train_dataset, is_train=True)
+    
+    val_dataset = ECGTextDataset(X_val, Y_val, transforms=preprocess_test, tokenizer=tokenizer, is_train=False)
+    datasets['val'] = make_dataloader(args, val_dataset, is_train=False)
 
-    X_test, mode_test, text_test = load_ptbxl(args.ptbxl_path, is_train=False, test_fold=-1)
-    test_dataset = ECGTextDataset(X_test, mode_test, text_test, transforms=preprocess_test,
-                                        tokenizer=tokenizer, is_train=False)
+    test_dataset = ECGTextDataset(X_test, Y_test, transforms=preprocess_test, tokenizer=tokenizer, is_train=False)
     datasets['test'] = make_dataloader(args, test_dataset, is_train=False)
+    
     return datasets
 
 
