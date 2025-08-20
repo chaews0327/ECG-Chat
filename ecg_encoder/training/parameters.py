@@ -26,6 +26,12 @@ class ParseKwargs(argparse.Action):
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--train",
+        default=False,
+        action="store_true",
+        help="Is training mode",
+    )
+    parser.add_argument(
         "--eval",
         default=False,
         action="store_true",
@@ -47,6 +53,13 @@ def parse_args(args):
 
     parser.add_argument(
         "--ptbxl-path",
+        type=str,
+        default=None,
+        help="Path to PTB-XL dataset"
+    )
+    
+    parser.add_argument(
+        "--mimic-iv-ecg-path",
         type=str,
         default=None,
         help="Path to PTB-XL dataset"
