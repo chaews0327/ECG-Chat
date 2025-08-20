@@ -5,7 +5,7 @@ python3 -m ecg_encoder.training.main \
     --batch-size 64 \
     --lr 1e-4 \
     --wd 0.1 \
-    --epochs 10 \
+    --epochs 20 \
     --model coca_roberta-ViT-B-32 \
     --config "./ecg_encoder/model/config.json" \
     --grad-clip-norm 0.5 \
