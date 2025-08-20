@@ -1,9 +1,3 @@
-"""
-REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/training/data.py
-구조를 동일하게 맞추기 위해 PTB-XL 함수 기준 수정 진행
-"""
-
-
 import os
 import wfdb
 from dataclasses import dataclass
