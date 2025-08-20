@@ -1,14 +1,12 @@
 import os
 import wfdb
 from dataclasses import dataclass
-from multiprocessing import Value
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.distributed import DistributedSampler
 
 
 class ECGTextDataset(Dataset):
@@ -63,28 +61,9 @@ class ECGValDataset(ECGTextDataset):
         return x, diagnostic
 
 
-class SharedEpoch:
-    def __init__(self, epoch: int = 0):
-        self.shared_epoch = Value('i', epoch)
-
-    def set_value(self, epoch):
-        self.shared_epoch.value = epoch
-
-    def get_value(self):
-        return self.shared_epoch.value
-
-
 @dataclass
 class DataInfo:
     dataloader: DataLoader
-    sampler: DistributedSampler = None
-    shared_epoch: SharedEpoch = None
-
-    def set_epoch(self, epoch):
-        if self.shared_epoch is not None:
-            self.shared_epoch.set_value(epoch)
-        if self.sampler is not None and isinstance(self.sampler, DistributedSampler):
-            self.sampler.set_epoch(epoch)
 
 
 def count_samples(dataloader):
@@ -117,7 +96,7 @@ def get_wave_info(data):
 
 def load_mimic_iv_ecg(path, wfep):
     db = pd.read_csv(os.path.join(path, 'machine_measurements.csv')).set_index('study_id')
-    record_list = pd.read_csv('preprocess/mimic_new_record_list.csv').set_index('study_id')
+    record_list = pd.read_csv('preprocess/filtered_record_list.csv').set_index('study_id')
     all_idx = record_list.index.values
     
     # train/test split
