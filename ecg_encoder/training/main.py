@@ -120,7 +120,7 @@ def main(args):
         for epoch in range(start_epoch, args.epochs):
             train(args, model, data, loss, epoch, optimizer, scheduler)
             completed_epoch = epoch + 1
-            test(model, data, completed_epoch)
+            test(args, model, data, completed_epoch)
             
             if args.save_logs:
                 checkpoint_dict = {
@@ -141,7 +141,7 @@ def main(args):
                         os.remove(previous_checkpoint)
     
     if args.eval:
-        test(model, data, start_epoch)
+        test(args, model, data, start_epoch)
         return
     
     

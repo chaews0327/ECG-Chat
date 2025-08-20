@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import random
 
 
-def test(model, data, epoch):
+def test(args, model, data, epoch):
     metrics = {}
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.eval()
@@ -55,7 +55,8 @@ def test(model, data, epoch):
         all_texts=all_texts,
         logit_scale=logit_scale.cpu(),
         top_k=5,
-        n_samples=10
+        n_samples=10,
+        seed=args.seed
     )
     
     return metrics
@@ -81,7 +82,8 @@ def get_clip_metrics(ecg_features, text_features, logit_scale):
     return metrics
 
 
-def print_topk_ecg_to_text_matches(ecg_features, text_features, all_texts, logit_scale, top_k=5, n_samples=10):
+def print_topk_ecg_to_text_matches(ecg_features, text_features, all_texts, logit_scale, top_k=5, n_samples=10, seed=42):
+    random.seed(seed)
     logits = (logit_scale * ecg_features @ text_features.t()).detach().cpu()
     sample_indices = random.sample(range(len(logits)), k=n_samples)
 
