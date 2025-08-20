@@ -10,12 +10,11 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class ECGTextDataset(Dataset):
-    def __init__(self, path, mode, texts, transforms=None, tokenizer=None, is_train=True):
+    def __init__(self, path, texts, transforms=None, tokenizer=None, is_train=True):
         super(ECGTextDataset, self).__init__()
         self.transforms = transforms
         self.tokenizer = tokenizer
         self.path = path
-        self.mode = mode
         self.y = texts
         self.is_train = is_train
 
@@ -29,7 +28,7 @@ class ECGTextDataset(Dataset):
         data[np.isnan(data)] = 0
         data[np.isinf(data)] = 0
 
-        data = torch.Tensor(data.astype(np.float32))
+        data = torch.Tensor(data.astype(np.float32)).T
         data = torch.unsqueeze(data, 0)
 
         if self.transforms is not None:
@@ -43,7 +42,7 @@ class ECGTextDataset(Dataset):
     def __getitem__(self, idx):
         x = self.load_data(idx)
         y = self.y[idx]
-        return x, self.tokenize(y), y
+        return x, self.tokenize(y)
 
 
 class ECGValDataset(ECGTextDataset):
@@ -164,17 +163,9 @@ def load_mimic_iv_ecg(path, wfep):
     return train_x, train_y, val_x, val_y, test_x, test_y
 
 
-def collate_fn(batch):
-        ecgs, tokens, raw_texts = zip(*batch)
-        ecgs = torch.stack(ecgs, dim=0)
-        tokens = torch.stack(tokens, dim=0)
-        return ecgs, tokens, list(raw_texts)
-
-
 def make_dataloader(args, dataset, is_train, drop_last=None):
     num_samples = len(dataset)
-    sampler = None
-    shuffle = is_train and sampler is None
+    shuffle = is_train
     drop_last = is_train if drop_last is None else drop_last
     
     dataloader = DataLoader(
@@ -183,14 +174,12 @@ def make_dataloader(args, dataset, is_train, drop_last=None):
         shuffle=shuffle,
         num_workers=args.workers,
         pin_memory=True,
-        sampler=sampler,
         drop_last=drop_last,
-        collate_fn=collate_fn
     )
     dataloader.num_samples = num_samples
     dataloader.num_batches = len(dataloader)
 
-    return DataInfo(dataloader, sampler)
+    return DataInfo(dataloader)
 
 
 def get_all_ecg_text_dataset(args, preprocess_train, preprocess_test, epoch=0, tokenizer=None):

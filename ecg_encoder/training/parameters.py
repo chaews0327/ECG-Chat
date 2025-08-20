@@ -140,6 +140,9 @@ def parse_args(args):
         "--save-frequency", type=int, default=1, help="How often to save checkpoints."
     )
     parser.add_argument(
+        "--save-logs", default=True, help="If you need to save checkpoints"
+    )
+    parser.add_argument(
         "--save-most-recent",
         action="store_true",
         default=False,
@@ -377,6 +380,12 @@ def parse_args(args):
         action="store_true",
         help='Use SigLip (sigmoid) loss.'
     )
+    parser.add_argument(
+        "--delete-previous-checkpoint",
+        default=False,
+        action="store_true"
+    )
+    parser.add_argument('--logs', type=str, default='./logs', help='checkpoint save path')
 
     args = parser.parse_args(args)
 

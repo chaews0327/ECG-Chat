@@ -3,7 +3,7 @@ import random
 import sys
 import os
 import json
-import datetime
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -31,6 +31,7 @@ def random_seed(seed=42):
 
 def main(args):
     args = parse_args(args)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     
     # 모델 이름 자동 생성
     if args.name is None:
@@ -52,7 +53,7 @@ def main(args):
 
     random_seed(args.seed)
     
-    model = CoCa(args.config)
+    model = CoCa(args.config).to(device)
     cfg_dict = get_model_preprocess_cfg(model.ecg)
     pp_cfg = PreprocessCfg(**cfg_dict) 
     preprocess_train = ecg_transform(pp_cfg)
@@ -68,6 +69,8 @@ def main(args):
     
     with open(args.config, "r") as f:
         config = json.load(f)
+        
+    start_epoch = 0
     
     # 토크나이저 생성
     token_model = config["text_cfg"]["hf_tokenizer_name"]
@@ -101,7 +104,6 @@ def main(args):
         total_steps = (data["train"].dataloader.num_batches // args.accum_freq) * args.epochs
         scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup, num_training_steps=total_steps)
 
-    start_epoch = 0
     if args.resume is not None:  # 체크포인트 존재 시
         checkpoint = torch.load(args.resume, map_location='cpu', weights_only=False)
         new_state_dict = {k.replace("module.", ""): v for k, v in checkpoint["state_dict"].items()}
@@ -129,12 +131,8 @@ def main(args):
                     "state_dict": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
                 }
-                if scaler is not None:
-                    checkpoint_dict["scaler"] = scaler.state_dict()
-
                 if completed_epoch == args.epochs or (
-                    args.save_frequency > 0 and (completed_epoch % args.save_frequency) == 0
-                ):
+                    args.save_frequency > 0 and (completed_epoch % args.save_frequency) == 0):
                     torch.save(
                         checkpoint_dict,
                         os.path.join(args.checkpoint_path, f"epoch_{completed_epoch}.pt"),
