@@ -6,7 +6,7 @@ import torch
 from torchmetrics.aggregation import MeanMetric
 
 
-def train(args, model, data, loss, epoch, optimizer):
+def train(args, model, data, loss, epoch, optimizer, scheduler):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.train()
     
@@ -33,6 +33,7 @@ def train(args, model, data, loss, epoch, optimizer):
             
         losses.backward()
         optimizer.step()
+        scheduler.step()
         
         # 시간 측정
         batch_time_m.update(torch.tensor(time.time()-end))
