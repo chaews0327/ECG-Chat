@@ -26,6 +26,12 @@ class ParseKwargs(argparse.Action):
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--train",
+        default=False,
+        action="store_true",
+        help="Is training mode",
+    )
+    parser.add_argument(
         "--eval",
         default=False,
         action="store_true",
@@ -47,6 +53,13 @@ def parse_args(args):
 
     parser.add_argument(
         "--ptbxl-path",
+        type=str,
+        default=None,
+        help="Path to PTB-XL dataset"
+    )
+    
+    parser.add_argument(
+        "--mimic-iv-ecg-path",
         type=str,
         default=None,
         help="Path to PTB-XL dataset"
@@ -125,6 +138,9 @@ def parse_args(args):
     )
     parser.add_argument(
         "--save-frequency", type=int, default=1, help="How often to save checkpoints."
+    )
+    parser.add_argument(
+        "--save-logs", default=True, help="If you need to save checkpoints"
     )
     parser.add_argument(
         "--save-most-recent",
@@ -364,6 +380,12 @@ def parse_args(args):
         action="store_true",
         help='Use SigLip (sigmoid) loss.'
     )
+    parser.add_argument(
+        "--delete-previous-checkpoint",
+        default=False,
+        action="store_true"
+    )
+    parser.add_argument('--logs', type=str, default='./logs', help='checkpoint save path')
 
     args = parser.parse_args(args)
 

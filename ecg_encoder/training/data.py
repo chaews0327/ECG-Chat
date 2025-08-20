@@ -12,6 +12,7 @@ from multiprocessing import Value
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
@@ -124,21 +125,19 @@ def get_wave_info(data):
 def load_ptbxl(path, is_train, test_fold=0):
     Y = pd.read_csv('preprocess/diagnostics_feature.csv')
 
-    if test_fold == -1:
-        pass
-    elif is_train:
-        Y = Y[Y.strat_fold != test_fold]
-    else:
-        Y = Y[Y.strat_fold == test_fold]
-
-    X_rel = Y.ECG_ID.values
-    modes = Y.Mode.values
-    y = Y.Label.values
-    X = [os.path.join(path, str(x)+'.pkl') for x in X_rel]
+    all_idx = Y.index.values
+    train_idx, test_idx = train_test_split(all_idx, test_size=0.2, random_state=42)
+    
+    selected_idx = train_idx if is_train else test_idx
+    Y_sel = Y.iloc[selected_idx]
+    
+    X = [os.path.join(path, f"{ecg_id}.pkl") for ecg_id in Y_sel['ECG_ID'].values]
+    modes = Y_sel['Mode'].values
+    labels = Y_sel['Label'].values
 
     texts = []
-    for i in range(len(Y)):
-        text = f" Hyperkalemia Score: {y[i]}"
+    for i in range(len(Y_sel)):
+        text = f" Hyperkalemia Score: {labels[i]}"
         texts.append(text + get_wave_info(Y.iloc[i]))
         # texts.append(get_wave_info(Y.iloc[i]))  # Hyperkalemia label 없이
 
