@@ -20,15 +20,15 @@ def train(args, model, data, loss, epoch, optimizer, scheduler):
     end = time.time()
     
     for i, batch in enumerate(dataloader):
-        ecg, text = batch
-        ecg = ecg.to(device=device)
-        text = text.to(device=device)
+        ecgs, texts, raw_texts = batch
+        ecgs = ecgs.to(device=device)
+        texts = texts.to(device=device)
         
         data_time_sum += time.time() - end
         data_time_count += 1
         optimizer.zero_grad()
         
-        model_out = model(ecg, text)
+        model_out = model(ecgs, texts)
         logit_scale = model_out["logit_scale"]
         losses = loss(**model_out, output_dict=True)
         total_loss = sum(losses.values())  # contrastive + caption loss
@@ -44,7 +44,7 @@ def train(args, model, data, loss, epoch, optimizer, scheduler):
         batch_count = i + 1
 
         if i % 1 == 0:
-            batch_size = len(ecg)
+            batch_size = len(ecgs)
             num_samples = batch_count * batch_size
             samples_per_epoch = dataloader.num_samples
             percent_complete = 100.0 * batch_count / dataloader.num_batches

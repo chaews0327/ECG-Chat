@@ -42,7 +42,7 @@ class ECGTextDataset(Dataset):
     def __getitem__(self, idx):
         x = self.load_data(idx)
         y = self.y[idx]
-        return x, self.tokenize(y)
+        return x, self.tokenize(y), y
 
 
 class ECGValDataset(ECGTextDataset):
@@ -163,6 +163,13 @@ def load_mimic_iv_ecg(path, wfep):
     return train_x, train_y, val_x, val_y, test_x, test_y
 
 
+def collate_fn(batch):
+        ecgs, tokens, raw_texts = zip(*batch)
+        ecgs = torch.stack(ecgs, dim=0)
+        tokens = torch.stack(tokens, dim=0)
+        return ecgs, tokens, list(raw_texts)
+
+
 def make_dataloader(args, dataset, is_train, drop_last=None):
     num_samples = len(dataset)
     shuffle = is_train
@@ -175,6 +182,7 @@ def make_dataloader(args, dataset, is_train, drop_last=None):
         num_workers=args.workers,
         pin_memory=True,
         drop_last=drop_last,
+        collate_fn=collate_fn
     )
     dataloader.num_samples = num_samples
     dataloader.num_batches = len(dataloader)

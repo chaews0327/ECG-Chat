@@ -14,10 +14,11 @@ def test(model, data, epoch):
     num_samples = 0
 
     all_ecg_features, all_text_features = [], []
+    all_texts = []
     
     with torch.no_grad():
         for _, batch in enumerate(dataloader):
-            ecgs, texts = batch
+            ecgs, texts, raw_texts = batch
             ecgs = ecgs.to(device)
             texts = texts.to(device)
 
@@ -31,6 +32,8 @@ def test(model, data, epoch):
             batch_size = ecgs.shape[0]
 
             num_samples += batch_size
+            
+            all_texts.extend(raw_texts)
             
         test_metrics = get_clip_metrics(
             ecg_features=torch.cat(all_ecg_features),
@@ -46,13 +49,14 @@ def test(model, data, epoch):
         + "\t".join([f"{k}: {round(v, 4):.4f}" for k, v in metrics.items()])
     )
     
-    """print_topk_ecg_to_text_matches(
+    print_topk_ecg_to_text_matches(
         ecg_features=torch.cat(all_ecg_features),
         text_features=torch.cat(all_text_features),
+        all_texts=all_texts,
         logit_scale=logit_scale.cpu(),
         top_k=5,
         n_samples=10
-    )"""
+    )
     
     return metrics
 
@@ -77,12 +81,13 @@ def get_clip_metrics(ecg_features, text_features, logit_scale):
     return metrics
 
 
-def print_topk_ecg_to_text_matches(ecg_features, text_features, logit_scale, top_k=5, n_samples=10):
+def print_topk_ecg_to_text_matches(ecg_features, text_features, all_texts, logit_scale, top_k=5, n_samples=10):
     logits = (logit_scale * ecg_features @ text_features.t()).detach().cpu()
     sample_indices = random.sample(range(len(logits)), k=n_samples)
 
     for i in sample_indices:
         print(f"\nECG Index: {i}")
+        print(f"GT: {all_texts[i]}")
 
         topk_idx = torch.argsort(logits[i], descending=True)[:top_k]
         for rank, idx in enumerate(topk_idx):

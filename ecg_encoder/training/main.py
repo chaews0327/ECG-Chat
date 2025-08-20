@@ -38,11 +38,9 @@ def main(args):
         model_name_safe = args.model.replace('/', '-')
         date_str = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         args.name = '-'.join([
-            date_str,
             f"model_{model_name_safe}",
             f"lr_{args.lr}",
             f"b_{args.batch_size}",
-            f"j_{args.workers}",
             f"p_{args.precision}",
         ])
         
