@@ -9,8 +9,11 @@ def test(args, model, data, epoch):
     metrics = {}
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.eval()
-
-    dataloader = data['test'].dataloader
+    
+    if args.train:
+        dataloader = data['val'].dataloader
+    elif args.eval:
+        dataloader = data['test'].dataloader
     num_samples = 0
 
     all_ecg_features, all_text_features = [], []
