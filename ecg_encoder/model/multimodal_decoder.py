@@ -29,8 +29,7 @@ class MultimodalDecoder(TransformerEncoder):
             
     def forward(self, ecg, txt):
         # output_tokens=True: 입력으로 들어오는 것은 tokens
-        # Resblock과 attn을 직접 가져다쓰기 때문에 해당 함수에서 permute가 필요함 (이전 인코더에서는 따로 wrapper가 존재했음)
-        # FIXME: make wrapper for transformer decoder
+        # Resblock과 attn을 직접 가져다쓰기 때문에 해당 함수에서 permute가 필요함
         text_embs = txt.permute(1, 0, 2)  # Q; (B, T, D) -> (T, B, D)
         image_embs = ecg.permute(1, 0, 2)  # K, V; (B, T, D) -> (T, B, D)
         
