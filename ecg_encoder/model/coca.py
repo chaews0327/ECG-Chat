@@ -151,6 +151,8 @@ class CoCa(nn.Module):
 
             if num_dims == 1:
                 out = out.squeeze(0)
+                
+            decoded = self.text.tokenizer.batch_decode(out, skip_special_tokens=True)
 
             self.train(was_training)  # 기존 상태로 변경
-            return out
+            return decoded

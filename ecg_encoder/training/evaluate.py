@@ -17,7 +17,7 @@ def test(args, model, data, epoch):
     num_samples = 0
 
     all_ecg_features, all_text_features = [], []
-    all_texts = []
+    all_ecgs, all_texts = []
     
     with torch.no_grad():
         for _, batch in enumerate(dataloader):
@@ -25,7 +25,7 @@ def test(args, model, data, epoch):
             ecgs = ecgs.to(device)
             texts = texts.to(device)
 
-            model_out = model(ecgs, texts)
+            model_out = model(ecgs, texts, output_labels=False)
             ecg_features = model_out["ecg_features"]
             text_features = model_out["text_features"]
             logit_scale = model_out["logit_scale"]
@@ -36,8 +36,9 @@ def test(args, model, data, epoch):
 
             num_samples += batch_size
             
+            all_ecgs.append(ecgs.cpu())
             all_texts.extend(raw_texts)
-            
+                        
         test_metrics = get_clip_metrics(
             ecg_features=torch.cat(all_ecg_features),
             text_features=torch.cat(all_text_features),
@@ -58,6 +59,14 @@ def test(args, model, data, epoch):
         all_texts=all_texts,
         logit_scale=logit_scale.cpu(),
         top_k=5,
+        n_samples=10,
+        seed=args.seed
+    )
+    
+    print_topk_generations(
+        model=model,
+        all_texts=all_texts,
+        ecgs=torch.cat(all_ecgs),
         n_samples=10,
         seed=args.seed
     )
@@ -100,3 +109,17 @@ def print_topk_ecg_to_text_matches(ecg_features, text_features, all_texts, logit
                 print(f"Top{rank+1}: {all_texts[idx]} (O)")
             else:
                 print(f"Top{rank+1}: {all_texts[idx]} (X)")
+                
+                
+def print_topk_generations(model, all_texts, ecgs, n_samples=10, seed=42):
+    random.seed(seed)
+    sample_indices = random.sample(range(len(ecgs)), k=n_samples)
+    ecgs_sample = ecgs[sample_indices]
+
+    generations = model.generation(ecgs_sample)
+
+    print("\n[Randomly Sampled Generations]")
+    for i, idx in enumerate(sample_indices):
+        print(f"[{i}] ECG Index: {idx}")
+        print(f"GT: {all_texts[idx]}")
+        print(f"GEN: {generations[i]}")
