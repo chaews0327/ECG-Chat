@@ -61,7 +61,7 @@ class CoCa(nn.Module):
                 ecg_embs=None,
                 output_labels=True):
         
-        if (ecg_latent or ecg_embs) is None:
+        if ecg_latent is None or ecg_embs is None:
             ecg_latent, ecg_embs = self.ecg(ecg)
             ecg_latent = F.normalize(ecg_latent, dim=-1)  # 각 배치 별로 unit vector 생성 (유사도 계산)
 
@@ -95,8 +95,8 @@ class CoCa(nn.Module):
         fixed_output_length=False):  # Eval/Test 시 아래의 함수로 이어서 진행
         
         with torch.no_grad():
-            sot_token_id = 49406 if sot_token_id is None else sot_token_id
-            eos_token_id = 49407 if eos_token_id is None else eos_token_id
+            sot_token_id = self.text.tokenizer.cls_token_id if sot_token_id is None else sot_token_id
+            eos_token_id = self.text.tokenizer.sep_token_id if eos_token_id is None else eos_token_id
             pad_token_id = self.pad_id if pad_token_id is None else pad_token_id
             
             logit_processor = LogitsProcessorList(
@@ -146,13 +146,13 @@ class CoCa(nn.Module):
                         sample[~mask, :] = torch.multinomial(probs, 1)  # 샘플링
 
                 out = torch.cat((out, sample), dim=-1)
-                if stopping_criteria(out, None):  # 최대 길이 도달 시 생성 종료
+                if stopping_criteria(out, None).all():  # 최대 길이 도달 시 생성 종료
                     break
 
             if num_dims == 1:
                 out = out.squeeze(0)
                 
-            decoded = self.text.tokenizer.batch_decode(out, skip_special_tokens=True)
+            decoded = self.text.tokenizer.batch_decode(out, skip_special_tokens=False)
 
             self.train(was_training)  # 기존 상태로 변경
             return decoded

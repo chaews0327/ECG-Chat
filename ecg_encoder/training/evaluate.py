@@ -17,7 +17,7 @@ def test(args, model, data, epoch):
     num_samples = 0
 
     all_ecg_features, all_text_features = [], []
-    all_ecgs, all_texts = []
+    all_ecgs, all_texts = [], []
     
     with torch.no_grad():
         for _, batch in enumerate(dataloader):
@@ -114,9 +114,9 @@ def print_topk_ecg_to_text_matches(ecg_features, text_features, all_texts, logit
 def print_topk_generations(model, all_texts, ecgs, n_samples=10, seed=42):
     random.seed(seed)
     sample_indices = random.sample(range(len(ecgs)), k=n_samples)
-    ecgs_sample = ecgs[sample_indices]
+    ecgs_sample = ecgs[sample_indices].to(next(model.parameters()).device)
 
-    generations = model.generation(ecgs_sample)
+    generations = model.generation(ecgs_sample, top_p=0.9)
 
     print("\n[Randomly Sampled Generations]")
     for i, idx in enumerate(sample_indices):
