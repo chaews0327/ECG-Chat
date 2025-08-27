@@ -105,7 +105,7 @@ def load_mimic_iv_ecg(path, wfep):
     def data(index_list):
         reports = []
         X = []
-        n_reports = 18
+        n_reports = 18  # 하나의 기록에 리포트 18개
         bad_reports = ["--- Warning: Data quality may affect interpretation ---",
                        "--- Recording unsuitable for analysis - please repeat ---",
                        "Analysis error",
@@ -122,25 +122,27 @@ def load_mimic_iv_ecg(path, wfep):
                        "Pacer detection suspended due to external noise-REVIEW ADVISED"]
 
         for i in index_list:
-            row = record_list.loc[i]
-            m_row = db.loc[i]
-            report_txt = ""
+            row = record_list.loc[i]  # 기록/파일 경로/환자 데이터/WDE DB
+            m_row = db.loc[i]  # 리포트가 들어 있는 DB
+            report_txt = ""  # 초기화
             for j in range(n_reports):
-                report = m_row[f"report_{j}"]
+                report = m_row[f"report_{j}"]  # 각 기록에 대한 리포트 가져오기
                 if type(report) == str:
                     is_bad = False
                     for bad_report in bad_reports:
-                        if report.find(bad_report) > -1:
+                        if report.find(bad_report) > -1:  # bad report의 기록이 있을 시
                             is_bad = True
                             break
-                    report_txt += (report + " ") if not is_bad else ""
+                    report_txt += (report + " ") if not is_bad else ""  # 정상 리포트만 이어붙이기
             if report_txt == "":
                 continue
-            report_txt = report_txt[:-1].lower()
+            report_txt = report_txt[:-1].lower()  # 마지막 공백 제거 및 소문자 변환
+            # 불필요한 정보 제거
             report_txt = (report_txt.replace("---", "")
                           .replace("***", "")
                           .replace(" - age undetermined", ""))
 
+            # 약어 -> 문장 치환
             report_txt = (report_txt.replace('rbbb', 'right bundle branch block')
                           .replace('lbbb', 'light bundle branch block')
                           .replace('lvh', 'left ventricle hypertrophy')
@@ -150,7 +152,7 @@ def load_mimic_iv_ecg(path, wfep):
                           .replace("pvcs", "ventricular premature complex")
                           .replace("pac(s)", "atrial premature complex")
                           .replace("pacs", "atrial premature complex"))
-            if wfep:
+            if wfep:  # WDE 정보 포함일 시
                 report_txt = report_txt + get_wave_info(row)
             reports.append(report_txt)
             X.append(os.path.join(path, row["path"]))
