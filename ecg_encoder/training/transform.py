@@ -82,13 +82,13 @@ class PreprocessCfg:
     
 
 def ecg_transform(cfg):
-    ecg_size = ecg_size=(cfg.num_channels, cfg.seq_length)
-    mean=cfg.mean
-    std=cfg.std
+    ecg_size = (cfg.num_channels, cfg.seq_length)  # (D, T)
+    mean=cfg.mean  # 현재의 cfg에서는 정해져 있지 않음
+    std=cfg.std  # 현재의 cfg에서는 정해져 있지 않음
         
     if mean is not None:
         normalize = Normalize(mean=mean, std=std)
-    else:
+    else:  # (0, 1)로 처리됨
         normalize = Normalize(mean=ECG_MEAN, std=ECG_STD)
     resize = Resize(seq_length=ecg_size[1])
 

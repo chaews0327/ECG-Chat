@@ -6,11 +6,12 @@ import torch.nn.functional as F
 class ContrastiveLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.prev_num_logits = 0
-        self.labels = None
+        self.prev_num_logits = 0  # label 재사용이 필요한지 확인하기 위해
+        self.labels = None  # label 재사용을 위해 변수에 저장
     
     
     def get_logits(self, ecg_features, text_features, logit_scale):
+        # ecg_feature, text_feature: (B, D)
         logits_per_ecg = logit_scale * ecg_features @ text_features.T
         logits_per_text = logit_scale * text_features @ ecg_features.T
         
@@ -18,11 +19,11 @@ class ContrastiveLoss(nn.Module):
         
         
     def get_ground_truth(self, num_logits, device):
-        if self.prev_num_logits != num_logits:
+        if self.prev_num_logits != num_logits:  # prev_num_logits != B
             labels = torch.arange(num_logits, dtype=torch.long, device=device)
             self.prev_num_logits = num_logits
             self.labels = labels
-        else:
+        else:  # label 재사용
             labels = self.labels
         return labels
     
@@ -54,8 +55,8 @@ class Loss(ContrastiveLoss):  # Contrastive Loss + Caption Loss
         contrastive_loss = contrastive_loss * self.contrastive_weight
         
         device = logits.device
-        labels = labels.to(device)
-        caption_loss = self.caption_loss(logits.permute(0, 2, 1), labels)
+        labels = labels.to(device)  # (B, T)
+        caption_loss = self.caption_loss(logits.permute(0, 2, 1), labels)  # (B, D, T), (B, T)
         caption_loss = caption_loss * self.caption_weight
 
         if output_dict:

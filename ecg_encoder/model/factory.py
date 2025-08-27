@@ -92,7 +92,6 @@ def get_model_preprocess_cfg(model):
     module = getattr(model, 'ecg', model)
     preprocess_cfg = getattr(module, 'preprocess_cfg', {})
     if not preprocess_cfg:
-        # use separate legacy attributes if preprocess_cfg dict not found
         seq_length = getattr(module, 'seq_length')
         if seq_length is not None:
             preprocess_cfg['seq_length'] = seq_length

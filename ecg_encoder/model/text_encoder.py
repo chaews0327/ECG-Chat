@@ -14,8 +14,10 @@ from .hf_configs import arch_dict
 
 class MeanPooler(nn.Module):
     def forward(self, x, attn_mask):
-        masked_output = x.last_hidden_state * attn_mask.unsqueeze(-1)
-        return masked_output.sum(dim=1) / attn_mask.sum(-1, keepdim=True)
+        # x: (Batch, Text sequence length, Dimension)
+        # attn_mask: (B, T)
+        masked_output = x.last_hidden_state * attn_mask.unsqueeze(-1)  # (B, T, D) * (B, T, 1)
+        return masked_output.sum(dim=1) / attn_mask.sum(-1, keepdim=True)  # (B, D) / (B, 1) = (B, D)
 
 
 class TextEncoder(nn.Module):
@@ -27,34 +29,32 @@ class TextEncoder(nn.Module):
         self.output_dim = output_dim
         self.output_tokens = output_tokens
         
-        uses_transformer_pooler = (pooler_type == "cls_pooler")
+        uses_transformer_pooler = (pooler_type == "cls_pooler")  # False로 세팅
         
         self.config = AutoConfig.from_pretrained(model_name)
         create_func, model_args = (AutoModel.from_pretrained, model_name) if pretrained else (
-            AutoModel.from_config, self.config)
-        if hasattr(self.config, "is_encoder_decoder") and self.config.is_encoder_decoder:
+            AutoModel.from_config, self.config)  # pretrained로 실행
+        if hasattr(self.config, "is_encoder_decoder") and self.config.is_encoder_decoder:  # True/False
             self.transformer = create_func(model_args)
             self.transformer = self.transformer.encoder
-        else:
+        else:  # 이 부분으로 실행됨
             self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
             
-        self.vocab_size = getattr(self.config, 'vocab_size', 0)
-        self.context_length = getattr(self.config, 'max_position_embeddings', 0)
+        self.vocab_size = getattr(self.config, 'vocab_size', 0)  # default 0
+        self.context_length = getattr(self.config, 'max_position_embeddings', 0)  # default 0
 
         self.pooler = MeanPooler()
 
         d_model = getattr(self.config, arch_dict[self.config.model_type]["config_names"]["width"])
-        hidden_size = (d_model + output_dim) // 2
+        
+        self.model = AutoModel.from_pretrained("ncbi/MedCPT-Query-Encoder")
+        self.tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
+        hidden_size = self.model.config.hidden_size
         self.proj = nn.Sequential(
             nn.Linear(d_model, hidden_size, bias=False),
             nn.GELU(),
             nn.Linear(hidden_size, output_dim, bias=False),
         )
-        
-        self.model = AutoModel.from_pretrained("ncbi/MedCPT-Query-Encoder")
-        self.tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
-        hidden_size = self.model.config.hidden_size
-        self.proj = nn.Linear(hidden_size, output_dim)
         
         
     def forward(self, x):

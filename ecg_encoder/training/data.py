@@ -98,8 +98,8 @@ def load_mimic_iv_ecg(path, wfep):
     record_list = pd.read_csv('preprocess/filtered_record_list.csv').set_index('study_id')
     all_idx = record_list.index.values
     
-    # train/test split
-    train_idx, test_idx = train_test_split(all_idx, test_size=0.1, random_state=42)
+    # train/test split: (8:1:1)
+    train_idx, test_idx = train_test_split(all_idx, test_size=0.2, random_state=42)
     val_idx, test_idx = train_test_split(test_idx, test_size=0.5, random_state=42)
         
     def data(index_list):
@@ -190,7 +190,7 @@ def make_dataloader(args, dataset, is_train, drop_last=None):
     return DataInfo(dataloader)
 
 
-def get_all_ecg_text_dataset(args, preprocess_train, preprocess_test, epoch=0, tokenizer=None):
+def get_all_ecg_text_dataset(args, preprocess_train, preprocess_test, tokenizer=None):
     datasets = {}
     X_train, Y_train, X_val, Y_val, X_test, Y_test = load_mimic_iv_ecg(args.mimic_iv_ecg_path, wfep=args.wfep)
     train_dataset = ECGTextDataset(X_train, Y_train, transforms=preprocess_train, tokenizer=tokenizer, is_train=True)
@@ -205,9 +205,9 @@ def get_all_ecg_text_dataset(args, preprocess_train, preprocess_test, epoch=0, t
     return datasets
 
 
-def get_data(args, preprocess_fns, epoch=0, tokenizer=None):
+def get_data(args, preprocess_fns, tokenizer=None):
     preprocess_train, preprocess_val = preprocess_fns
 
-    data = get_all_ecg_text_dataset(args, preprocess_train, preprocess_val, epoch=epoch, tokenizer=tokenizer)
+    data = get_all_ecg_text_dataset(args, preprocess_train, preprocess_val, tokenizer=tokenizer)
 
     return data

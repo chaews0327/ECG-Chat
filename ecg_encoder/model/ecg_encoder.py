@@ -86,10 +86,10 @@ class ECGEncoder(nn.Module):
         self.output_tokens = output_tokens
         self.seq_length = seq_length  # 전체 길이
         self.lead_num = lead_num  # 채널
-        self.patch_size = patch_size
-        self.patch_nums = seq_length // patch_size
+        self.patch_size = patch_size  # 패치 크기
+        self.patch_nums = seq_length // patch_size  # 전체 패치 개수
         self.final_ln_after_pool = final_ln_after_pool
-        self.output_dim = output_dim
+        self.output_dim = output_dim  # 최종 차원
 
         self.conv1 = nn.Conv1d(
             in_channels=lead_num,
@@ -101,7 +101,6 @@ class ECGEncoder(nn.Module):
         self.class_embedding = nn.Parameter(torch.randn(width))
         self.positional_embedding = nn.Parameter(torch.randn(self.patch_nums+1, width))
         
-        self.patch_dropout = nn.Identity()
         self.ln_pre = norm_layer(width)
         
         self.transformer = TransformerEncoder(width, layers, heads, mlp_ratio,
@@ -109,26 +108,21 @@ class ECGEncoder(nn.Module):
                                               act_layer=act_layer,
                                               norm_layer=norm_layer)
         
-        self.attn_pool = None
         pool_dim = width
-        self.pool_type = pool_type
+        self.pool_type = pool_type  # 현재 코드에서 사용은 X
         
         self.ln_post = norm_layer(pool_dim)
         self.proj = nn.Parameter(torch.randn(pool_dim, output_dim))
         
     
-    def forward(self, x, output_last_transformer_layer=False):
+    def forward(self, x):
         x = self.conv1(x)  # (*, width, num_patch)
         x = x.permute(0, 2, 1)  # (*, num_patch, width)
         
         x = torch.cat([self.class_embedding.view(1, 1, -1).expand(x.shape[0], -1, -1), x], dim=1)  # (*, num_patch+1, width)
-        x = x + self.positional_embedding  # (x, num_patch+1, width)
-        x = self.patch_dropout(x)
+        x = x + self.positional_embedding  # (*, num_patch+1, width), 차원이 맞지 않음: pytorch broadcasting
         x = self.ln_pre(x)
         x = self.transformer(x)
-        
-        if output_last_transformer_layer:
-            return x
         
         x = self.ln_post(x)
         pooled, tokens = x[:, 0], x[:, 1:]

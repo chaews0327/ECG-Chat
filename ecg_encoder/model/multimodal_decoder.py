@@ -1,9 +1,3 @@
-"""
-REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/transformer.py
-REF: https://docs.pytorch.org/docs/stable/generated/torch.nn.TransformerDecoderLayer.html
-"""
-
-
 from dataclasses import dataclass
 from .text_encoder import CLIPTextCfg
 
@@ -29,19 +23,22 @@ class MultimodalDecoder(TransformerEncoder):
         ])
 
         self.ln_final = norm_layer(width)
-        self.text_projection = nn.Parameter(torch.empty(width, output_dim))
+        # 추후 xavier 등으로 변경? 원본 코드에서는 init_parameters 함수를 별도로 정의해주고 있음을 확인
+        self.text_projection = nn.Parameter(torch.randn(width, output_dim))
         
             
     def forward(self, ecg, txt):
-        text_embs = txt.permute(1, 0, 2)  # Q
-        image_embs = ecg.permute(1, 0, 2)  # K, V
-        seq_len = text_embs.shape[0]
+        # output_tokens=True: 입력으로 들어오는 것은 tokens
+        # Resblock과 attn을 직접 가져다쓰기 때문에 해당 함수에서 permute가 필요함 (이전 인코더에서는 따로 wrapper가 존재했음)
+        # FIXME: make wrapper for transformer decoder
+        text_embs = txt.permute(1, 0, 2)  # Q; (B, T, D) -> (T, B, D)
+        image_embs = ecg.permute(1, 0, 2)  # K, V; (B, T, D) -> (T, B, D)
         
         for resblock, cross_attn in zip(self.resblocks, self.cross_attn):
             text_embs = resblock(text_embs)
             text_embs = cross_attn(text_embs, k=image_embs, v=image_embs)
             
-        x = text_embs.permute(1, 0, 2)
+        x = text_embs.permute(1, 0, 2)  # (T, B, D) -> (B, T, D)
         x = self.ln_final(x)
         
         if self.text_projection is not None:
