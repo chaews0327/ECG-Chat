@@ -116,7 +116,9 @@ def print_topk_generations(model, all_texts, ecgs, n_samples=10, seed=42):
     sample_indices = random.sample(range(len(ecgs)), k=n_samples)
     ecgs_sample = ecgs[sample_indices].to(next(model.parameters()).device)
 
-    generations = model.generation(ecgs_sample, top_p=0.9)
+    generations = model.generation(ecgs_sample, top_p=0.9,
+                                   sot_token_id=model.text.tokenizer.cls_token_id,
+                                   eos_token_id=model.text.tokenizer.sep_token_id)
 
     print("\n[Randomly Sampled Generations]")
     for i, idx in enumerate(sample_indices):

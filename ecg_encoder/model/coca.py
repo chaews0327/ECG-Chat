@@ -95,8 +95,8 @@ class CoCa(nn.Module):
         fixed_output_length=False):  # Eval/Test 시 아래의 함수로 이어서 진행
         
         with torch.no_grad():
-            sot_token_id = self.text.tokenizer.cls_token_id if sot_token_id is None else sot_token_id
-            eos_token_id = self.text.tokenizer.sep_token_id if eos_token_id is None else eos_token_id
+            sot_token_id = 49406 if sot_token_id is None else sot_token_id
+            eos_token_id = 49407 if eos_token_id is None else eos_token_id
             pad_token_id = self.pad_id if pad_token_id is None else pad_token_id
             
             logit_processor = LogitsProcessorList(
