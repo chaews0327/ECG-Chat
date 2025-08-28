@@ -44,7 +44,7 @@ class CoCa(nn.Module):
         # 모델 생성
         self.ecg = build_ecg_encoder(embed_dim, ecg_cfg)
         self.text = build_text_encoder(embed_dim, text_cfg)
-        self.text_decoder = build_multimodal_decoder(text_cfg.vocab_size, multimodal_cfg)
+        self.text_decoder = build_multimodal_decoder(self.text.vocab_size, multimodal_cfg)
         
         self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)
         if init_logit_bias is not None:
@@ -75,7 +75,7 @@ class CoCa(nn.Module):
         if output_labels:  # 정답이 있을 때 (Training): Teacher Forcing 사용
             token_embs = token_embs[:, :-1]
 
-        logits = self.text_decoder(ecg_embs, token_embs)
+        logits = self.text_decoder(ecg_embs, token_embs)  # (64, 100, 768) (64, 76, 768)
         out_dict = {
             "ecg_features": ecg_latent,
             "text_features": text_latent,
@@ -156,7 +156,7 @@ class CoCa(nn.Module):
             if num_dims == 1:
                 out = out.squeeze(0)
                 
-            decoded = self.text.tokenizer.batch_decode(out, skip_special_tokens=False)
+            decoded = self.text.tokenizer.batch_decode(out, skip_special_tokens=True)
 
             self.train(was_training)  # 기존 상태로 변경
             return decoded

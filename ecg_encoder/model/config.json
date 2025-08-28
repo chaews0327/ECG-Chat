@@ -13,8 +13,7 @@
         "hf_tokenizer_name": "ncbi/MedCPT-Query-Encoder",
         "hf_proj_type": "linear",
         "width": 768,
-        "output_tokens": true,
-        "vocab_size": 30522
+        "output_tokens": true
     },
     "multimodal_cfg": {
         "context_length": 76,
