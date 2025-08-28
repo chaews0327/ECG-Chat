@@ -94,10 +94,16 @@ class CoCa(nn.Module):
         sot_token_id=None, min_seq_len=5, repetition_penalty=1.0,
         fixed_output_length=False):  # Eval/Test 시 아래의 함수로 이어서 진행
         
+        device = ecg.device  # 디바이스 통일
+        
         with torch.no_grad():
             sot_token_id = 49406 if sot_token_id is None else sot_token_id
             eos_token_id = 49407 if eos_token_id is None else eos_token_id
             pad_token_id = self.pad_id if pad_token_id is None else pad_token_id
+            
+            sot_token_id = torch.tensor(sot_token_id, device=device)
+            eos_token_id = torch.tensor(eos_token_id, device=device)
+            pad_token_id = torch.tensor(pad_token_id, device=device)
             
             logit_processor = LogitsProcessorList(
                 [
@@ -106,8 +112,6 @@ class CoCa(nn.Module):
                 ]
             )
             stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length=seq_len)])  # seq_len 도달 시 종료
-
-            device = ecg.device  # 디바이스 통일
             logit_warper = TopPLogitsWarper(top_p)
             
             ecg_latent, ecg_embs = self.ecg(ecg)  # (B, D), (B, T, D)
@@ -122,7 +126,7 @@ class CoCa(nn.Module):
                 text = text.unsqueeze(0)  # (1, T)
                 
             self.eval()
-            out = text
+            out = text.to(device)
             
             while True:  # seq_len 도달 시 생성 종료
                 x = out[:, -max_seq_len:]  # (B, T): max_seq_len만큼의 길이 유지 (현재는 무의미함)
