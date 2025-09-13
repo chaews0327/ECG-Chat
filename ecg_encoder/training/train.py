@@ -6,7 +6,7 @@ import torch
 
 
 def train(args, model, data, loss, epoch, optimizer, scheduler):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda:2" if torch.cuda.is_available() else "cpu"
     model.train()
     
     dataloader = data['train'].dataloader
