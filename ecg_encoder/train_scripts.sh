@@ -2,7 +2,7 @@
 python3 -m ecg_encoder.training.main \
     --mimic-iv-ecg-path="/data/mimic-iv-ecg/physionet.org/files/mimic-iv-ecg/1.0" \
     --warmup 10000 \
-    --batch-size 64 \
+    --batch-size 96 \
     --lr 1e-4 \
     --wd 0.1 \
     --epochs 20 \
