@@ -24,17 +24,20 @@ class ECGTextDataset(Dataset):
         return encoded[0]
 
     def load_data(self, idx):
-        data = wfdb.rdsamp(self.path[idx])[0]
-        data[np.isnan(data)] = 0
-        data[np.isinf(data)] = 0
+        try:
+            data = wfdb.rdsamp(self.path[idx])[0]
+            data[np.isnan(data)] = 0
+            data[np.isinf(data)] = 0
 
-        data = torch.Tensor(data.astype(np.float32)).T
-        data = torch.unsqueeze(data, 0)
+            data = torch.Tensor(data.astype(np.float32)).T
+            data = torch.unsqueeze(data, 0)
 
-        if self.transforms is not None:
-            data = self.transforms(data)
-        data = torch.squeeze(data, 0)
-        return data
+            if self.transforms is not None:
+                data = self.transforms(data)
+            data = torch.squeeze(data, 0)
+            return data
+        except:
+            return None
 
     def __len__(self):
         return len(self.y)
@@ -42,6 +45,10 @@ class ECGTextDataset(Dataset):
     def __getitem__(self, idx):
         x = self.load_data(idx)
         y = self.y[idx]
+        
+        if x is None:
+            new_idx = (idx+1) % len(self)
+            return self.__getitem__(new_idx)
         return x, self.tokenize(y), y
 
 
@@ -57,6 +64,10 @@ class ECGValDataset(ECGTextDataset):
     def __getitem__(self, idx):
         x = self.load_data(idx)
         diagnostic = self.diagnostics[idx, :]
+        
+        if x is None:
+            new_idx = (idx+1) % len(self)
+            return __getitem__(new_idx)
         return x, diagnostic
 
 
@@ -95,7 +106,7 @@ def get_wave_info(data):
 
 def load_mimic_iv_ecg(path, wfep):
     db = pd.read_csv(os.path.join(path, 'machine_measurements.csv')).set_index('study_id')
-    record_list = pd.read_csv('preprocess/filtered_record_list.csv').set_index('study_id')
+    record_list = pd.read_csv('preprocess/new_record_list.csv').set_index('study_id')
     all_idx = record_list.index.values
     
     # train/test split: (8:1:1)
