@@ -36,7 +36,8 @@ class ECGTextDataset(Dataset):
                 data = self.transforms(data)
             data = torch.squeeze(data, 0)
             return data
-        except:
+        except Exception as e:
+            print(f"Error at idx={idx}, path={self.path[idx]}, err={e}")
             return None
 
     def __len__(self):
@@ -135,6 +136,13 @@ def load_mimic_iv_ecg(path, wfep):
         for i in index_list:
             row = record_list.loc[i]  # 기록/파일 경로/환자 데이터/WDE DB
             m_row = db.loc[i]  # 리포트가 들어 있는 DB
+            
+            record_path = os.path.join(path, row["path"])
+            hea_file = record_path + ".hea"
+            if not os.path.exists(hea_file):
+                print(f"[SKIP] Missing file: {hea_file}")
+                continue
+            
             report_txt = ""  # 초기화
             for j in range(n_reports):
                 report = m_row[f"report_{j}"]  # 각 기록에 대한 리포트 가져오기
@@ -192,7 +200,7 @@ def make_dataloader(args, dataset, is_train, drop_last=None):
         dataset,
         batch_size=args.batch_size,
         shuffle=shuffle,
-        num_workers=args.workers,
+        num_workers=0,
         pin_memory=True,
         drop_last=drop_last,
         collate_fn=collate_fn
