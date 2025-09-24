@@ -12,12 +12,14 @@ from torch.nn import functional as F
 import numpy as np
 
 from transformers import (
-        LogitsProcessorList,
-        TopPLogitsWarper,
-        RepetitionPenaltyLogitsProcessor,
-        MinLengthLogitsProcessor,
-        MaxLengthCriteria,
-        StoppingCriteriaList
+    LogitsProcessorList,
+    TopPLogitsWarper,
+    TopKLogitsWarper,
+    BeamSearchScorer,
+    RepetitionPenaltyLogitsProcessor,
+    MinLengthLogitsProcessor,
+    MaxLengthCriteria,
+    StoppingCriteriaList,
 )
 
 from ecg_encoder.model.ecg_encoder import CLIPEcgCfg, build_ecg_encoder
@@ -92,7 +94,8 @@ class CoCa(nn.Module):
     def generation(self, ecg, text=None, seq_len=30, max_seq_len=77,
         temperature=1., top_p=0.1, pad_token_id=None, eos_token_id=None,
         sot_token_id=None, min_seq_len=5, repetition_penalty=1.0,
-        fixed_output_length=False):  # Eval/Test 시 아래의 함수로 이어서 진행
+        fixed_output_length=False, generation_type="beam_search",
+        num_beams=6, num_beam_groups=3,):  # Eval/Test 시 아래의 함수로 이어서 진행
         
         device = ecg.device  # 디바이스 통일
         
@@ -100,11 +103,6 @@ class CoCa(nn.Module):
             sot_token_id = 49406 if sot_token_id is None else sot_token_id
             eos_token_id = 49407 if eos_token_id is None else eos_token_id
             pad_token_id = self.pad_id if pad_token_id is None else pad_token_id
-            
-            sot_token_id = torch.tensor(sot_token_id, device=device)
-            eos_token_id = torch.tensor(eos_token_id, device=device)
-            pad_token_id = torch.tensor(pad_token_id, device=device)
-            
             logit_processor = LogitsProcessorList(
                 [
                     MinLengthLogitsProcessor(min_seq_len, eos_token_id),  # 지나치게 짧은 문장 방지
@@ -112,7 +110,33 @@ class CoCa(nn.Module):
                 ]
             )
             stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length=seq_len)])  # seq_len 도달 시 종료
-            logit_warper = TopPLogitsWarper(top_p)
+            
+            if generation_type == "beam_search":
+                output = self.beamsearch_generation(
+                    ecg_inputs=ecg,
+                    pad_token_id=pad_token_id,
+                    eos_token_id=eos_token_id,
+                    sot_token_id=sot_token_id,
+                    num_beams=num_beams,
+                    num_beam_groups=num_beam_groups,
+                    min_seq_len=min_seq_len,
+                    stopping_criteria=stopping_criteria,
+                    logit_processor=logit_processor,
+                )
+                if fixed_output_length and output.shape[1] < seq_len:
+                    pad_len = seq_len - output.shape[1]
+                    return torch.cat((
+                            output,
+                            torch.ones(output.shape[0], pad_len, device=device, dtype=output.dtype) * self.pad_id
+                        ),
+                        dim=1
+                    )
+                return output
+            
+            elif generation_type == "top_p":
+                logit_warper = TopPLogitsWarper(top_p)
+            elif generation_type == "top_k":
+                logit_warper = TopPLogitsWarper(top_k)
             
             ecg_latent, ecg_embs = self.ecg(ecg)  # (B, D), (B, T, D)
             if text is None:
@@ -126,7 +150,7 @@ class CoCa(nn.Module):
                 text = text.unsqueeze(0)  # (1, T)
                 
             self.eval()
-            out = text.to(device)
+            out = text
             
             while True:  # seq_len 도달 시 생성 종료
                 x = out[:, -max_seq_len:]  # (B, T): max_seq_len만큼의 길이 유지 (현재는 무의미함)
@@ -138,7 +162,6 @@ class CoCa(nn.Module):
                     if not fixed_output_length:
                         break
                 else:
-                    logits = logits[~mask, :]  # 마스킹되지 않은 부분의 logit값
                     filtered_logits = logit_processor(x[~mask, :], logits)  # 길이/반복 필터링
                     filtered_logits = logit_warper(x[~mask, :], filtered_logits)  # top-p
                     probs = F.softmax(filtered_logits / temperature, dim=-1)
@@ -155,8 +178,7 @@ class CoCa(nn.Module):
 
             if num_dims == 1:
                 out = out.squeeze(0)
-                
-            decoded = self.text.tokenizer.batch_decode(out, skip_special_tokens=True)
-
+            
             self.train(was_training)  # 기존 상태로 변경
-            return decoded
+            return out
+        
