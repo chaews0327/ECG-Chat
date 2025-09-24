@@ -92,7 +92,7 @@ class CoCa(nn.Module):
     
     
     def generation(self, ecg, text=None, seq_len=30, max_seq_len=77,
-        temperature=1., top_p=0.1, pad_token_id=None, eos_token_id=None,
+        temperature=1., top_p=0.1, top_k=1, pad_token_id=None, eos_token_id=None,
         sot_token_id=None, min_seq_len=5, repetition_penalty=1.0,
         fixed_output_length=False, generation_type="beam_search",
         num_beams=6, num_beam_groups=3,):  # Eval/Test 시 아래의 함수로 이어서 진행
@@ -162,6 +162,12 @@ class CoCa(nn.Module):
                     if not fixed_output_length:
                         break
                 else:
+                    for processor in logit_processor:
+                        if hasattr(processor, "eos_token_id"):
+                            if not torch.is_tensor(processor.eos_token_id):
+                                processor.eos_token_id = torch.tensor([processor.eos_token_id], device=device)
+                            else:
+                                processor.eos_token_id = processor.eos_token_id.to(device)
                     filtered_logits = logit_processor(x[~mask, :], logits)  # 길이/반복 필터링
                     filtered_logits = logit_warper(x[~mask, :], filtered_logits)  # top-p
                     probs = F.softmax(filtered_logits / temperature, dim=-1)
