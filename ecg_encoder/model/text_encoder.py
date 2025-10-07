@@ -47,9 +47,8 @@ class TextEncoder(nn.Module):
 
         d_model = getattr(self.config, arch_dict[self.config.model_type]["config_names"]["width"])
         
-        self.model = AutoModel.from_pretrained("ncbi/MedCPT-Query-Encoder")
         self.tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
-        hidden_size = self.model.config.hidden_size
+        hidden_size = self.config.hidden_size
         self.proj = nn.Sequential(
             nn.Linear(d_model, hidden_size, bias=False),
             nn.GELU(),
