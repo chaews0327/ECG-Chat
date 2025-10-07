@@ -7,7 +7,7 @@ import random
 
 def test(args, model, data, epoch):
     metrics = {}
-    device = "cuda:1" if torch.cuda.is_available() else "cpu"
+    device = args.cuda_device if torch.is_available() else "cpu"
     model.eval()
     
     if args.train:
@@ -122,7 +122,7 @@ def print_topk_generations(model, all_texts, ecgs, n_samples=10, seed=42):
     
     if isinstance(generations, torch.Tensor):  # 텐서로 return 시 디코딩 진행
         gen_list = generations.detach().cpu().tolist()
-        generations = model.text.tokenizer.batch_decode(gen_list, skip_special_tokens=False)
+        generations = model.text.tokenizer.batch_decode(gen_list, skip_special_tokens=True)
 
     print("\n[Randomly Sampled Generations]")
     for i, idx in enumerate(sample_indices):

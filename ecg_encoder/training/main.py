@@ -31,7 +31,7 @@ def random_seed(seed=42):
 
 def main(args):
     args = parse_args(args)
-    device = "cuda:2" if torch.cuda.is_available() else "cpu"
+    device = args.cuda_device if torch.cuda.is_available() else "cpu"
     
     # 모델 이름 자동 생성
     if args.name is None:
@@ -41,7 +41,8 @@ def main(args):
             f"model_{model_name_safe}",
             f"lr_{args.lr}",
             f"b_{args.batch_size}",
-            f"p_{args.precision}",
+            f"wfep_{args.wfep}",
+            f"{date_str}",
         ])
         
     # 모델 체크포인트 설정
