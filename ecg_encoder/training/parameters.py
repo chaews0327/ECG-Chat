@@ -387,7 +387,7 @@ def parse_args(args):
     )
     parser.add_argument(
         "--cuda-device",
-        default="cuda:1"
+        default="cpu"
     )
     parser.add_argument('--logs', type=str, default='./logs', help='checkpoint save path')
 

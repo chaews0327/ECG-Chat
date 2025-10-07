@@ -31,7 +31,7 @@ def random_seed(seed=42):
 
 def main(args):
     args = parse_args(args)
-    device = args.cuda_device if torch.cuda.is_available() else "cpu"
+    device = args.cuda_device
     
     # 모델 이름 자동 생성
     if args.name is None:

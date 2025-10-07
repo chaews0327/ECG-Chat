@@ -5,10 +5,11 @@ python3 -m ecg_encoder.training.main \
     --batch-size 96 \
     --lr 1e-4 \
     --wd 0.1 \
-    --epochs 20 \
+    --epochs 10 \
     --model coca_roberta-ViT-B-32 \
     --config "./ecg_encoder/model/config.json" \
     --grad-clip-norm 0.5 \
+    --cuda-device "cuda:0" \
     --delete-previous-checkpoint \
     --wfep \
     --train \

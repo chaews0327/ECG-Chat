@@ -7,7 +7,7 @@ import random
 
 def test(args, model, data, epoch):
     metrics = {}
-    device = args.cuda_device if torch.is_available() else "cpu"
+    device = args.cuda_device
     model.eval()
     
     if args.train:
