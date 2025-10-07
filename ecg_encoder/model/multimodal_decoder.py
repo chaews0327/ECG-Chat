@@ -25,6 +25,14 @@ class MultimodalDecoder(TransformerEncoder):
         self.ln_final = norm_layer(width)
         # 추후 xavier 등으로 변경? 원본 코드에서는 init_parameters 함수를 별도로 정의해주고 있음을 확인
         self.text_projection = nn.Parameter(torch.randn(width, output_dim))
+        self.attn_mask = self.build_attention_mask()
+        
+        
+    def build_attention_mask(self):
+        mask = torch.empty(self.context_length+1, self.context_length+1)
+        mask.fill_(float("-inf"))
+        mask.triu_(1)  # zero out the lower diagonal
+        return mask
         
             
     def forward(self, ecg, txt):
@@ -32,9 +40,10 @@ class MultimodalDecoder(TransformerEncoder):
         # Resblock과 attn을 직접 가져다쓰기 때문에 해당 함수에서 permute가 필요함
         text_embs = txt.permute(1, 0, 2)  # Q; (B, T, D) -> (T, B, D)
         image_embs = ecg.permute(1, 0, 2)  # K, V; (B, T, D) -> (T, B, D)
+        seq_len = text_embs.shape[0]
         
         for resblock, cross_attn in zip(self.resblocks, self.cross_attn):
-            text_embs = resblock(text_embs)
+            text_embs = resblock(text_embs, attn_mask=self.attn_mask[:seq_len, :seq_len])  # attn mask 추가
             text_embs = cross_attn(text_embs, k=image_embs, v=image_embs)
             
         x = text_embs.permute(1, 0, 2)  # (T, B, D) -> (B, T, D)
