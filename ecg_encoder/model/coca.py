@@ -227,11 +227,9 @@ class CoCa(nn.Module):
             # indices which will form the beams in the next time step
             reordering_indices = torch.zeros(batch_size * num_beams, dtype=torch.long, device=device)
 
-            # do one decoder step on all beams of all sentences in batch
-            model_inputs = prepare_inputs_for_generation(input_ids=input_ids, ecg_inputs=ecg_inputs)
             outputs = self(
-                model_inputs['ecgs'],
-                model_inputs['text'],
+                ecg_inputs,
+                input_ids,
                 ecg_latent=ecg_latent,
                 ecg_embs=ecg_embs,
                 output_labels=False,
@@ -317,25 +315,3 @@ class CoCa(nn.Module):
             beam_indices=final_beam_indices,
         )
         return sequence_outputs['sequences']
-
-
-def prepare_inputs_for_generation(input_ids, ecg_inputs, past=None, **kwargs):
-    if past:
-        input_ids = input_ids[:, -1].unsqueeze(-1)
-
-    attention_mask = kwargs.get("attention_mask", None)
-    position_ids = kwargs.get("position_ids", None)
-
-    if attention_mask is not None and position_ids is None:
-        # create position_ids on the fly for batch generation
-        position_ids = attention_mask.long().cumsum(-1) - 1
-        position_ids.masked_fill_(attention_mask == 0, 1)
-    else:
-        position_ids = None
-    return {
-        "text": input_ids,
-        "ecgs": ecg_inputs,
-        "past_key_values": past,
-        "position_ids": position_ids,
-        "attention_mask": attention_mask,
-    }
