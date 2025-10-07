@@ -34,11 +34,7 @@ class TextEncoder(nn.Module):
         self.config = AutoConfig.from_pretrained(model_name)
         create_func, model_args = (AutoModel.from_pretrained, model_name) if pretrained else (
             AutoModel.from_config, self.config)  # pretrained로 실행
-        if hasattr(self.config, "is_encoder_decoder") and self.config.is_encoder_decoder:  # True/False
-            self.transformer = create_func(model_args)
-            self.transformer = self.transformer.encoder
-        else:  # 이 부분으로 실행됨
-            self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
+        self.transformer = create_func(model_args, add_pooling_layer=uses_transformer_pooler)
             
         self.vocab_size = getattr(self.config, 'vocab_size', 0)  # default 0
         self.context_length = getattr(self.config, 'max_position_embeddings', 0)  # default 0
@@ -48,12 +44,7 @@ class TextEncoder(nn.Module):
         d_model = getattr(self.config, arch_dict[self.config.model_type]["config_names"]["width"])
         
         self.tokenizer = AutoTokenizer.from_pretrained("ncbi/MedCPT-Query-Encoder")
-        hidden_size = self.config.hidden_size
-        self.proj = nn.Sequential(
-            nn.Linear(d_model, hidden_size, bias=False),
-            nn.GELU(),
-            nn.Linear(hidden_size, output_dim, bias=False),
-        )
+        self.proj = nn.Linear(d_model, output_dim, bias=False)
         
         
     def forward(self, x):
