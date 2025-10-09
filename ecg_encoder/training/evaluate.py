@@ -63,13 +63,14 @@ def test(args, model, data, epoch):
         seed=args.seed
     )
     
-    print_topk_generations(
-        model=model,
-        all_texts=all_texts,
-        ecgs=torch.cat(all_ecgs),
-        n_samples=10,
-        seed=args.seed
-    )
+    if args.eval:
+        print_topk_generations(
+            model=model,
+            all_texts=all_texts,
+            ecgs=torch.cat(all_ecgs),
+            n_samples=10,
+            seed=args.seed
+        )
     
     return metrics
 
