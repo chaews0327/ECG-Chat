@@ -48,7 +48,8 @@ def main(args):
     # 모델 체크포인트 설정
     log_base_path = os.path.join(args.logs, args.name)
     args.checkpoint_path = os.path.join(log_base_path, "checkpoints")
-    os.makedirs(args.checkpoint_path, exist_ok=True)
+    if args.train:
+        os.makedirs(args.checkpoint_path, exist_ok=True)
 
     random_seed(args.seed)
     
