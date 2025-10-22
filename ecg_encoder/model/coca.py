@@ -46,7 +46,7 @@ class CoCa(nn.Module):
         # 모델 생성
         self.ecg = build_ecg_encoder(embed_dim, ecg_cfg)
         self.text = build_text_encoder(embed_dim, text_cfg)
-        self.text_decoder = build_multimodal_decoder(text_cfg.vocab_size, multimodal_cfg)  # vocab size 변경
+        self.text_decoder = build_multimodal_decoder(30522, multimodal_cfg)  # vocab size 변경
         
         self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)
         if init_logit_bias is not None:
@@ -226,14 +226,20 @@ class CoCa(nn.Module):
 
             # indices which will form the beams in the next time step
             reordering_indices = torch.zeros(batch_size * num_beams, dtype=torch.long, device=device)
-
-            outputs = self(
-                ecg_inputs,
-                input_ids,
-                ecg_latent=ecg_latent,
-                ecg_embs=ecg_embs,
-                output_labels=False,
-            )
+            
+            # print(input_ids)
+            # input_ids[input_ids >= 30522] = pad_token_id
+            try: 
+                    outputs = self(
+                    ecg_inputs,
+                    input_ids,
+                    ecg_latent=ecg_latent,
+                    ecg_embs=ecg_embs,
+                    output_labels=False,
+                )
+            except:
+                print("Error:", input_ids)
+                break
 
             for beam_group_idx in range(num_beam_groups):
                 group_start_idx = beam_group_idx * num_sub_beams
