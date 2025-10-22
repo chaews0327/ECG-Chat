@@ -18,7 +18,7 @@ class MultimodalDecoder(TransformerEncoder):
         super().__init__(width, layers, heads, mlp_ratio, ls_init_value, act_layer,norm_layer)
         self.context_length = context_length
         self.cross_attn = nn.ModuleList([
-            ResidualBlock(width, heads, mlp_ratio, ls_init_value, act_layer, norm_layer, is_cross_attention=True)
+            ResidualBlock(width, heads, mlp_ratio, ls_init_value=ls_init_value, act_layer=act_layer, norm_layer=norm_layer, is_cross_attention=True)
             for _ in range(layers)
         ])
 
@@ -29,9 +29,9 @@ class MultimodalDecoder(TransformerEncoder):
         
         
     def build_attention_mask(self):
-        mask = torch.empty(self.context_length+1, self.context_length+1)
+        mask = torch.empty(self.context_length, self.context_length)
         mask.fill_(float("-inf"))
-        mask.triu_(1)  # zero out the lower diagonal
+        mask.triu_(1)
         return mask
         
             
