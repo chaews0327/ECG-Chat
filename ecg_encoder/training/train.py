@@ -19,6 +19,9 @@ def train(args, model, data, loss, epoch, optimizer, scheduler):
     data_time_count = 0
     end = time.time()
     
+    contrastive_losses = []
+    captioning_losses = []
+    
     for i, batch in enumerate(dataloader):
         ecgs, texts, raw_texts = batch
         ecgs = ecgs.to(device=device)
@@ -32,6 +35,9 @@ def train(args, model, data, loss, epoch, optimizer, scheduler):
         logit_scale = model_out["logit_scale"]
         losses = loss(**model_out, output_dict=True)
         total_loss = sum(losses.values())  # contrastive + caption loss
+        
+        contrastive_losses.append(losses["contrastive_loss"].detach().cpu().item())
+        captioning_losses.append(losses["caption_loss"].detach().cpu().item())
         
         total_loss.backward()
         optimizer.step()
@@ -76,3 +82,4 @@ def train(args, model, data, loss, epoch, optimizer, scheduler):
                 f"Logit Scale: {logit_scale_scalar:.3f} " + loss_log
             )
             
+    return contrastive_losses, captioning_losses

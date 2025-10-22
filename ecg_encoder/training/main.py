@@ -112,16 +112,35 @@ def main(args):
             model.load_state_dict(new_state_dict, strict=False)
             if optimizer is not None:
                 optimizer.load_state_dict(checkpoint["optimizer"])
-            if scaler is not None and 'scaler' in checkpoint:
-                scaler.load_state_dict(checkpoint['scaler'])
+            """if scaler is not None and 'scaler' in checkpoint:
+                scaler.load_state_dict(checkpoint['scaler'])"""
     
     if args.train:
         loss = create_loss(args)
         
         for epoch in range(start_epoch, args.epochs):
-            train(args, model, data, loss, epoch, optimizer, scheduler)
+            l1, l2 = train(args, model, data, loss, epoch, optimizer, scheduler)
             completed_epoch = epoch + 1
             test(args, model, data, completed_epoch)
+            
+            import matplotlib.pyplot as plt
+            def plot_losses(
+                loss_data, title,
+                save_path: str,
+            ):
+                plt.figure(figsize=(10, 6))
+                
+                epochs = range(1, len(loss_data) + 1)
+                plt.plot(epochs, loss_data)
+
+                plt.title(title)
+                plt.xlabel("Batches")
+                plt.ylabel("Loss Value")
+                plt.grid(True, linestyle='--')
+                plt.savefig(save_path)
+                plt.close()
+
+                print(f"Graph saved to: {save_path}")
             
             if args.save_logs:
                 checkpoint_dict = {
@@ -140,6 +159,9 @@ def main(args):
                     previous_checkpoint = os.path.join(args.checkpoint_path, f"epoch_{completed_epoch - 1}.pt")
                     if os.path.exists(previous_checkpoint):
                         os.remove(previous_checkpoint)
+                        
+            plot_losses(l1, "contrastive loss", os.path.join(args.checkpoint_path, f"contrastive_loss_{completed_epoch}.png"))
+            plot_losses(l2, "captioning loss", os.path.join(args.checkpoint_path, f"captioning_loss_{completed_epoch}.png"))
     
     if args.eval:
         test(args, model, data, start_epoch)
