@@ -41,11 +41,11 @@ class ContrastiveLoss(nn.Module):
 
 
 class Loss(ContrastiveLoss):  # Contrastive Loss + Caption Loss
-    def __init__(self, contrastive_weight, caption_weight):
+    def __init__(self, contrastive_weight, caption_weight, pad_id=0):
         super().__init__()
         self.contrastive_weight = contrastive_weight
         self.caption_weight = caption_weight
-        self.caption_loss = nn.CrossEntropyLoss()
+        self.caption_loss = nn.CrossEntropyLoss(ignore_index=pad_id)
         
     
     def forward(self, ecg_features, text_features, logits, labels, logit_scale, output_dict=False):
