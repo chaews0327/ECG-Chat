@@ -26,7 +26,7 @@ def test(args, model, data, epoch):
             ecgs = ecgs.to(device)
             texts = texts.to(device)
 
-            model_out = model(ecgs, texts, output_labels=False)
+            model_out = model(ecgs, texts, output_labels=True)
             ecg_features = model_out["ecg_features"]
             text_features = model_out["text_features"]
             logit_scale = model_out["logit_scale"]

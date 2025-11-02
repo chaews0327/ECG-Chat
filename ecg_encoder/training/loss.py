@@ -48,7 +48,7 @@ class Loss(ContrastiveLoss):  # Contrastive Loss + Caption Loss
         self.caption_loss = nn.CrossEntropyLoss(ignore_index=pad_id)
         
     
-    def forward(self, ecg_features, text_features, logits, labels, logit_scale, output_dict=False):
+    def forward(self, ecg_features, text_features, logits, labels, logit_scale, output_dict=False, **kwargs):
         contrastive_loss = super().forward(ecg_features, text_features, logit_scale, output_dict)
         if isinstance(contrastive_loss, dict):
             contrastive_loss = contrastive_loss["contrastive_loss"]
