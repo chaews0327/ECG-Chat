@@ -177,9 +177,10 @@ def main(args):
         metrics, attn_data = test(args, model, data, start_epoch)
         
         # attention 데이터 저장
-        save_path = os.path.join(args.checkpoint_path, f"attn_map_epoch_{completed_epoch}.pt")
+        os.makedirs(args.checkpoint_path, exist_ok=True)
+        save_path = os.path.join(args.checkpoint_path, f"attn_map_epoch_{start_epoch}.pt")
         torch.save(attn_data, save_path)
-        logging.info(f"Attention data saved to: {save_path} for epoch {completed_epoch}.")
+        logging.info(f"Attention data saved to: {save_path} for epoch {start_epoch}.")
         return
     
     
