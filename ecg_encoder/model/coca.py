@@ -81,12 +81,13 @@ class CoCa(nn.Module):
         if output_labels:  # 정답이 있을 때 (Training): Teacher Forcing 사용
             token_embs = token_embs[:, :-1]
 
-        logits = self.text_decoder(ecg_embs, token_embs)  # (64, 100, 768) (64, 76, 768)
+        logits, attention_maps = self.text_decoder(ecg_embs, token_embs)  # (64, 100, 768) (64, 76, 768)
         out_dict = {
             "ecg_features": ecg_latent,
             "text_features": text_latent,
             "logits": logits,
-            "logit_scale": self.logit_scale.exp()
+            "logit_scale": self.logit_scale.exp(),
+            "attn_map": attention_maps
         }
         if labels is not None:
             out_dict["labels"] = labels

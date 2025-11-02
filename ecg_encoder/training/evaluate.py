@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import random
+import os
 
 
 def test(args, model, data, epoch):
@@ -20,7 +21,7 @@ def test(args, model, data, epoch):
     all_ecgs, all_texts = [], []
     
     with torch.no_grad():
-        for _, batch in enumerate(dataloader):
+        for i, batch in enumerate(dataloader):
             ecgs, texts, raw_texts = batch
             ecgs = ecgs.to(device)
             texts = texts.to(device)
@@ -38,6 +39,18 @@ def test(args, model, data, epoch):
             
             all_ecgs.append(ecgs.cpu())
             all_texts.extend(raw_texts)
+            
+            if i == 0 and 'attn_map' in model_out:
+                attn_maps = model_out['attn_map']
+                sample_indices = list(range(ecgs.shape[0]))
+                raw_texts = np.array(raw_texts)[sample_indices].tolist()
+                                
+                attn_data_to_save = {
+                    'ecgs': ecgs[sample_indices].cpu(),
+                    'texts': raw_texts,
+                    'text_tokens': model.text.tokenizer.batch_decode(texts[sample_indices].cpu().tolist(), skip_special_tokens=False),
+                    'attention_maps': [m[sample_indices].cpu() for m in attn_maps],
+                }
                         
         test_metrics = get_clip_metrics(
             ecg_features=torch.cat(all_ecg_features),
@@ -72,7 +85,7 @@ def test(args, model, data, epoch):
             seed=args.seed
         )
     
-    return metrics
+    return metrics, attn_data_to_save
 
 
 def get_clip_metrics(ecg_features, text_features, logit_scale):

@@ -126,7 +126,7 @@ def main(args):
         for epoch in range(start_epoch, args.epochs):
             l1, l2 = train(args, model, data, loss, epoch, optimizer, scheduler)
             completed_epoch = epoch + 1
-            test(args, model, data, completed_epoch)
+            metrics, attn_data = test(args, model, data, completed_epoch)
             
             import matplotlib.pyplot as plt
             def plot_losses(
@@ -165,11 +165,21 @@ def main(args):
                     if os.path.exists(previous_checkpoint):
                         os.remove(previous_checkpoint)
                         
+                # attention 데이터 저장
+                save_path = os.path.join(args.checkpoint_path, f"attn_map_epoch_{completed_epoch}.pt")
+                torch.save(attn_data, save_path)
+                logging.info(f"Attention data saved to: {save_path} for epoch {completed_epoch}.")
+                        
             plot_losses(l1, "contrastive loss", os.path.join(args.checkpoint_path, f"contrastive_loss_{completed_epoch}.png"))
             plot_losses(l2, "captioning loss", os.path.join(args.checkpoint_path, f"captioning_loss_{completed_epoch}.png"))
     
     if args.eval:
-        test(args, model, data, start_epoch)
+        metrics, attn_data = test(args, model, data, start_epoch)
+        
+        # attention 데이터 저장
+        save_path = os.path.join(args.checkpoint_path, f"attn_map_epoch_{completed_epoch}.pt")
+        torch.save(attn_data, save_path)
+        logging.info(f"Attention data saved to: {save_path} for epoch {completed_epoch}.")
         return
     
     

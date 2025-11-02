@@ -39,19 +39,30 @@ class ResidualBlock(nn.Module):
         v = v if v is not None else q
         attn_mask = attn_mask if attn_mask is not None else None
         
-        return self.attn(q, k, v, need_weights=False, attn_mask=attn_mask)[0]
+        attn_output, attn_weights = self.attn(q, k, v, need_weights=True,attn_mask=attn_mask)
+        
+        # return self.attn(q, k, v, need_weights=False, attn_mask=attn_mask)[0]
+        return attn_output, attn_weights
 
 
     def forward(self, q, k=None, v=None, attn_mask=None):
+        is_cross_attn = False
+        
         # cross attention의 경우
         if hasattr(self, "ln_1_kv"):
+            is_cross_attn = True
             k = self.ln_1_kv(k)
             v = self.ln_1_kv(v)
         else:
             k = v = None
             
-        x = q + self.ls_1(self.attention(self.ln_1(q), k, v, attn_mask))
+        attn_output, attn_weights = self.attention(self.ln_1(q), k, v, attn_mask)
+        
+        x = q + self.ls_1(attn_output)
         x = x + self.ls_2(self.mlp(self.ln_2(x)))
+        
+        if is_cross_attn:
+            return x, attn_weights
         
         return x
 

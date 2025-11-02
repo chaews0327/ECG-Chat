@@ -107,7 +107,8 @@ def get_wave_info(data):
 
 def load_mimic_iv_ecg(path, wfep):
     db = pd.read_csv(os.path.join(path, 'machine_measurements.csv')).set_index('study_id')
-    record_list = pd.read_csv('preprocess/new_record_list.csv').set_index('study_id')
+    record_list = pd.read_csv('preprocess/filtered_record_list.csv').set_index('study_id')
+    record_list = record_list[:100]
     all_idx = record_list.index.values
     
     # train/test split: (8:1:1)

@@ -42,10 +42,14 @@ class MultimodalDecoder(TransformerEncoder):
         image_embs = ecg.permute(1, 0, 2)  # K, V; (B, T, D) -> (T, B, D)
         seq_len = text_embs.shape[0]
         
+        cross_attn_map = []
         attn_mask = self.attn_mask[:seq_len, :seq_len].to(text_embs.device)
+        
         for resblock, cross_attn in zip(self.resblocks, self.cross_attn):
             text_embs = resblock(text_embs, attn_mask=attn_mask)  # attn mask 추가
-            text_embs = cross_attn(text_embs, k=image_embs, v=image_embs)
+            text_embs, attn_map = cross_attn(text_embs, k=image_embs, v=image_embs)
+            
+            cross_attn_map.append(attn_map)
             
         x = text_embs.permute(1, 0, 2)  # (T, B, D) -> (B, T, D)
         x = self.ln_final(x)
@@ -53,7 +57,7 @@ class MultimodalDecoder(TransformerEncoder):
         if self.text_projection is not None:
             x = x @ self.text_projection
             
-        return x
+        return x, cross_attn_map
 
 
 @dataclass
