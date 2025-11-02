@@ -57,6 +57,10 @@ class CoCa(nn.Module):
 
         self.context_length = multimodal_cfg.context_length
         
+        
+    def lock_text_tower(self, unlocked_layers=0, freeze_layer_norm=True):
+        self.text.lock(unlocked_layers, freeze_layer_norm)
+        
     
     def forward(self, ecg, text=None,
                 ecg_latent=None,

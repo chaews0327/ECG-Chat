@@ -59,6 +59,11 @@ def main(args):
     preprocess_train = ecg_transform(pp_cfg)
     preprocess_val = ecg_transform(pp_cfg)
     
+    if args.lock_text:
+        model.lock_text_tower(
+            unlocked_layers=args.lock_text_unlocked_layers,
+            freeze_layer_norm=args.lock_text_freeze_layer_norm)
+    
     # Weight Decay를 적용/미적용할 파라미터 정의
     exclude = lambda n, p: p.ndim < 2 or "bn" in n or "ln" in n or "bias" in n or 'logit_scale' in n
     include = lambda n, p: not exclude(n, p)
