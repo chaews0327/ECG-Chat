@@ -15,7 +15,16 @@ class MultimodalDecoder(TransformerEncoder):
                  act_layer=nn.GELU,
                  norm_layer=nn.LayerNorm,
                  output_dim=512):
-        super().__init__(width, layers, heads, mlp_ratio, ls_init_value, act_layer,norm_layer)
+        
+        super().__init__(
+            width=width,
+            layers=layers,
+            heads=heads,
+            mlp_ratio=mlp_ratio,
+            ls_init_value=ls_init_value,
+            act_layer=act_layer,
+            norm_layer=norm_layer,
+        )
         self.context_length = context_length
         self.cross_attn = nn.ModuleList([
             ResidualBlock(width, heads, mlp_ratio, ls_init_value=ls_init_value, act_layer=act_layer, norm_layer=norm_layer, is_cross_attention=True)
@@ -24,7 +33,7 @@ class MultimodalDecoder(TransformerEncoder):
 
         self.ln_final = norm_layer(width)
         # 추후 xavier 등으로 변경? 원본 코드에서는 init_parameters 함수를 별도로 정의해주고 있음을 확인
-        self.text_projection = nn.Parameter(torch.randn(width, output_dim))
+        self.text_projection = nn.Parameter(torch.empty(width, output_dim))
         self.attn_mask = self.build_attention_mask()
         
         

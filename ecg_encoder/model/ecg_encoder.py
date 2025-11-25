@@ -7,7 +7,7 @@ REF: https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/trans
 
 from dataclasses import dataclass
 from collections import OrderedDict
-from typing import Optional, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -37,7 +37,7 @@ class ResidualBlock(nn.Module):
         # cross attention과 self attention이 함께 동작할 수 있도록
         k = k if k is not None else q
         v = v if v is not None else q
-        attn_mask = attn_mask if attn_mask is not None else None
+        attn_mask = attn_mask.to(q.dtype) if attn_mask is not None else None
         
         attn_output, attn_weights = self.attn(q, k, v, need_weights=True,attn_mask=attn_mask)
         
