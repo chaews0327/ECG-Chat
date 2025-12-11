@@ -44,8 +44,8 @@ class CoCa(nn.Module):
         multimodal_cfg = MultimodalCfg(**config['multimodal_cfg'])
 
         # 모델 생성
-        self.ecg = build_ecg_encoder(embed_dim, ecg_cfg)
         self.text = build_text_encoder(embed_dim, text_cfg)
+        self.ecg = build_ecg_encoder(embed_dim, ecg_cfg)
         self.text_decoder = build_multimodal_decoder(49408, multimodal_cfg)  # vocab size 변경
         
         self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)

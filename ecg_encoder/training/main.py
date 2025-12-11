@@ -92,7 +92,6 @@ def main(args):
     # Test 시 optimizer 및 scaler 미정의
     if args.eval:
         optimizer = None
-        scaler = None
     
     # Train 시 optimizer 및 scheduler 정의
     else:
@@ -119,8 +118,6 @@ def main(args):
             model.load_state_dict(sd)
             if optimizer is not None:
                 optimizer.load_state_dict(checkpoint["optimizer"])
-            if scaler is not None and 'scaler' in checkpoint:
-                scaler.load_state_dict(checkpoint['scaler'])
     
     if args.train:
         loss = create_loss(args)
