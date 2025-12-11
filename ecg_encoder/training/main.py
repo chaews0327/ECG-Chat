@@ -18,6 +18,7 @@ from ecg_encoder.training.train import train
 from ecg_encoder.training.evaluate import test
 from ecg_encoder.training.transform import ecg_transform, PreprocessCfg
 from ecg_encoder.training.loss import create_loss
+from ecg_encoder.training.scheduler import cosine_lr
 
 
 LATEST_CHECKPOINT_NAME = "epoch_10.pt"
@@ -106,19 +107,20 @@ def main(args):
         )
         
         total_steps = (data["train"].dataloader.num_batches // args.accum_freq) * args.epochs
-        scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup, num_training_steps=total_steps)
+        scheduler = cosine_lr(optimizer, args.lr, args.warmup, total_steps)
 
     if args.resume is not None:  # 체크포인트 존재 시
         checkpoint = torch.load(args.resume, map_location='cpu', weights_only=False)
-        new_state_dict = {k.replace("module.", ""): v for k, v in checkpoint["state_dict"].items()}
-                
         if 'epoch' in checkpoint:
             start_epoch = checkpoint["epoch"]
-            model.load_state_dict(new_state_dict, strict=False)
+            sd = checkpoint["state_dict"]
+            if next(iter(sd.items()))[0].startswith('module'):
+                sd = {k[len('module.'):]: v for k, v in sd.items()}
+            model.load_state_dict(sd)
             if optimizer is not None:
                 optimizer.load_state_dict(checkpoint["optimizer"])
-            """if scaler is not None and 'scaler' in checkpoint:
-                scaler.load_state_dict(checkpoint['scaler'])"""
+            if scaler is not None and 'scaler' in checkpoint:
+                scaler.load_state_dict(checkpoint['scaler'])
     
     if args.train:
         loss = create_loss(args)
