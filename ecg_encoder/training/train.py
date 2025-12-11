@@ -22,6 +22,8 @@ def train(args, model, data, loss, epoch, optimizer, scheduler):
     contrastive_losses = []
     captioning_losses = []
     
+    num_batches_per_epoch = dataloader.num_batches // args.accum_freq
+    
     for i, batch in enumerate(dataloader):
         ecgs, texts, raw_texts = batch
         ecgs = ecgs.to(device=device)
@@ -41,7 +43,8 @@ def train(args, model, data, loss, epoch, optimizer, scheduler):
         
         total_loss.backward()
         optimizer.step()
-        scheduler.step()
+        step = num_batches_per_epoch * epoch + (i // args.accum_freq)
+        scheduler(step)
         
         # 시간 측정
         batch_time_sum += time.time() - end
