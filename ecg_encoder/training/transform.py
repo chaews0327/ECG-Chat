@@ -1,7 +1,8 @@
 import torch.nn as nn
 import torch
-from typing import Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
+from .augmentations import BaselineWander, RandomMasking, CutMix
 
 
 # https://github.com/YubaoZhao/ECG-Chat/blob/master/open_clip/open_clip/constants.py
@@ -62,6 +63,29 @@ class Compose:
         return x
 
 
+class RandomApply(torch.nn.Module):
+    def __init__(self, transforms, p=0.5):
+        super().__init__()
+        self.transforms = transforms
+        self.p = p
+
+    def forward(self, ecg):
+        if self.p < torch.rand(1):
+            return ecg
+        for t in self.transforms:
+            ecg = t(ecg)
+        return ecg
+
+    def __repr__(self):
+        format_string = self.__class__.__name__ + "("
+        format_string += "\n    p={}".format(self.p)
+        for t in self.transforms:
+            format_string += "\n"
+            format_string += "    {0}".format(t)
+        format_string += "\n)"
+        return format_string
+
+
 @dataclass
 class PreprocessCfg:
     seq_length: int = 5000
@@ -79,9 +103,17 @@ class PreprocessCfg:
     @property
     def input_size(self):
         return self.num_channels, self.seq_length
+
+
+@dataclass
+class AugmentationCfg:
+    scale: Tuple[float, float] = (0.9, 1.0)
+    ratio: Optional[Tuple[float, float]] = None
+    dur: Optional[Tuple[float, float]] = 10
+    sr: Optional[int] = 500
     
 
-def ecg_transform(cfg):
+def ecg_transform(cfg, is_train):
     ecg_size = (cfg.num_channels, cfg.seq_length)  # (D, T)
     mean=cfg.mean  # 현재의 cfg에서는 정해져 있지 않음
     std=cfg.std  # 현재의 cfg에서는 정해져 있지 않음
@@ -92,9 +124,27 @@ def ecg_transform(cfg):
         normalize = Normalize(mean=ECG_MEAN, std=ECG_STD)
     resize = Resize(seq_length=ecg_size[1])
 
-    transforms = []
-    transforms.extend([
-        normalize,
-        resize
-    ])
-    return Compose(transforms)
+    aug_cfg = AugmentationCfg()
+
+    dur = aug_cfg.dur
+    sr = aug_cfg.sr
+
+    if is_train:
+        train_transform = [
+            RandomApply([BaselineWander(fs=sr), ], p=0.5),
+            RandomApply([CutMix(fs=sr)], p=0.5),
+            RandomApply([RandomMasking(fs=sr)], p=0.3)
+        ]
+        train_transform.extend([
+            normalize,
+            resize
+        ])
+        train_transform = Compose(train_transform)
+        return train_transform
+    else:
+        transforms = []
+        transforms.extend([
+            normalize,
+            resize
+        ])
+        return Compose(transforms)

@@ -57,8 +57,8 @@ def main(args):
     model = CoCa(args.config).to(device)
     cfg_dict = get_model_preprocess_cfg(model.ecg)
     pp_cfg = PreprocessCfg(**cfg_dict) 
-    preprocess_train = ecg_transform(pp_cfg)
-    preprocess_val = ecg_transform(pp_cfg)
+    preprocess_train = ecg_transform(pp_cfg, is_train=True)
+    preprocess_val = ecg_transform(pp_cfg, is_train=False)
     
     if args.lock_text:
         model.lock_text_tower(
