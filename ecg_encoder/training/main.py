@@ -181,6 +181,33 @@ def main(args):
         torch.save(attn_data, save_path)
         logging.info(f"Attention data saved to: {save_path} for epoch {start_epoch}.")
         return
+
+
+def get_ecg_encoder(model_name, checkpoint_path, device):
+    model_kwargs = {}
+    model_config = json.load("./model/config.json")
+
+    model = CoCa(model_config).to(device)
+    cfg_dict = get_model_preprocess_cfg(model.ecg)
+    pp_cfg = PreprocessCfg(**cfg_dict) 
+    preprocess_val = ecg_transform(pp_cfg, is_train=False)
+
+    model.to_empty(device=device)
+    model = model.ecg
+    checkpoint = pt_load(checkpoint_path, map_location='cpu')
+
+    sd = checkpoint["state_dict"]
+    sd_new = {}
+    for k, v in sd.items():
+        if k.startswith('ecg'):
+            sd_new[k[len('ecg.'):]] = v
+
+    model.load_state_dict(sd_new)
+
+    logging.info(f"=> loaded checkpoint '{checkpoint_path}' ")
+
+    model.lock()
+    return model, preprocess_val, model_config
     
     
 if __name__=="__main__":
