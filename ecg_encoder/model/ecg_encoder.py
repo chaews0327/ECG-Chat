@@ -128,7 +128,10 @@ class ECGEncoder(nn.Module):
         self.proj = nn.Parameter(torch.randn(pool_dim, output_dim))
         
     
-    def forward(self, x):
+    def forward(self, x, output_last_transformer_layer=False):
+        if output_last_transformer_layer:
+            return x
+
         x = self.conv1(x)  # (*, width, num_patch)
         x = x.reshape(x.shape[0], x.shape[1], -1)
         x = x.permute(0, 2, 1)  # (*, num_patch, width)
@@ -152,6 +155,40 @@ class ECGEncoder(nn.Module):
             return pooled, tokens
             
         return pooled
+
+
+    def lock(self, unlocked_groups=0, freeze_bn_stats=False):
+        for param in self.parameters():
+            param.requires_grad = False
+
+        if unlocked_groups != 0:
+            groups = [
+                [
+                    self.conv1,
+                    self.class_embedding,
+                    self.positional_embedding,
+                    self.ln_pre,
+                ],
+                *self.transformer.resblocks[:-1],
+                [
+                    self.transformer.resblocks[-1],
+                    self.ln_post,
+                ],
+                self.proj,
+            ]
+
+            def _unlock(x):
+                if isinstance(x, Sequence):
+                    for g in x:
+                        _unlock(g)
+                else:
+                    if isinstance(x, torch.nn.Parameter):
+                        x.requires_grad = True
+                    else:
+                        for p in x.parameters():
+                            p.requires_grad = True
+
+            _unlock(groups[-unlocked_groups:])
 
 
 @dataclass
