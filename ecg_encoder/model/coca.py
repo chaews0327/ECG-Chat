@@ -34,8 +34,12 @@ class CoCa(nn.Module):
                  pad_id=0):
         super().__init__()
         
-        with open(cfg, "r") as f:
-            config = json.load(f)  # 설정 불러오기
+        # 설정 불러오기
+        if isinstance(cfg, str):
+            with open(cfg, "r") as f:
+                config = json.load(f)
+        else:
+            config = cfg
         
         # Model Configuration 가져오기
         embed_dim = config['embed_dim']

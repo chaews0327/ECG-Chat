@@ -4,6 +4,7 @@ import sys
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -185,7 +186,9 @@ def main(args):
 
 def get_ecg_encoder(model_name, checkpoint_path, device):
     model_kwargs = {}
-    model_config = json.load("./model/config.json")
+    parent_dir = Path(__file__).resolve().parent.parent
+    with open(os.path.join(parent_dir, "model/config.json"), "r") as f:
+        model_config = json.load(f)
 
     model = CoCa(model_config).to(device)
     cfg_dict = get_model_preprocess_cfg(model.ecg)
@@ -194,7 +197,7 @@ def get_ecg_encoder(model_name, checkpoint_path, device):
 
     model.to_empty(device=device)
     model = model.ecg
-    checkpoint = pt_load(checkpoint_path, map_location='cpu')
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
 
     sd = checkpoint["state_dict"]
     sd_new = {}
