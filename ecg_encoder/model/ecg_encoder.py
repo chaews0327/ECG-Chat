@@ -129,9 +129,6 @@ class ECGEncoder(nn.Module):
         
     
     def forward(self, x, output_last_transformer_layer=False):
-        if output_last_transformer_layer:
-            return x
-
         x = self.conv1(x)  # (*, width, num_patch)
         x = x.reshape(x.shape[0], x.shape[1], -1)
         x = x.permute(0, 2, 1)  # (*, num_patch, width)
@@ -144,6 +141,9 @@ class ECGEncoder(nn.Module):
         x = self.patch_dropout(x)
         x = self.ln_pre(x)
         x = self.transformer(x)
+
+        if output_last_transformer_layer:
+            return x
         
         x = self.ln_post(x)
         pooled, tokens = x[:, 0], x[:, 1:]
