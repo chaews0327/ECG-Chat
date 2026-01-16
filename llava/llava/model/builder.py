@@ -54,7 +54,24 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             lora_cfg_pretrained = LlavaConfig.from_pretrained(model_path)
             tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
             print('Loading LLaVA from base model...')
-            model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=lora_cfg_pretrained, **kwargs)
+            model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=False, config=lora_cfg_pretrained, **kwargs)
+            print("Synchronizing ECG Tower weights with the global model structure...")
+            ecg_tower_path = lora_cfg_pretrained.mm_ecg_tower
+            checkpoint = torch.load(ecg_tower_path, map_location='cpu')
+
+            if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+                state_dict = checkpoint['state_dict']
+            else:
+                state_dict = checkpoint
+
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                if k.startswith('ecg.'):
+                    new_k = k.replace('ecg.', 'model.ecg_tower.ecg_tower.', 1)
+                    new_state_dict[new_k] = v
+
+            model.load_state_dict(new_state_dict, strict=False)
+            
             token_num, tokem_dim = model.lm_head.out_features, model.lm_head.in_features
             if model.lm_head.weight.shape[0] != token_num:
                 model.lm_head.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
@@ -92,11 +109,11 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                     shutil.copyfile(os.path.join(model_base, 'configuration_mpt.py'), os.path.join(model_path, 'configuration_mpt.py'))
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=True)
                 cfg_pretrained = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
-                model = LlavaMptForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=cfg_pretrained, **kwargs)
+                model = LlavaMptForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=False, config=cfg_pretrained, **kwargs)
             else:
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
                 cfg_pretrained = AutoConfig.from_pretrained(model_path)
-                model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=cfg_pretrained, **kwargs)
+                model = LlavaLlamaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=False, config=cfg_pretrained, **kwargs)
 
             mm_projector_weights = torch.load(os.path.join(model_path, 'mm_projector.bin'), map_location='cpu')
             mm_projector_weights = {k: v.to(torch.float16) for k, v in mm_projector_weights.items()}
@@ -104,19 +121,19 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
         else:
             if 'mpt' in model_name.lower():
                 tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
-                model = LlavaMptForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs)
+                model = LlavaMptForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=False, **kwargs)
             elif 'mistral' in model_name.lower():
                 tokenizer = AutoTokenizer.from_pretrained(model_path)
                 model = LlavaMistralForCausalLM.from_pretrained(
                     model_path,
-                    low_cpu_mem_usage=True,
+                    low_cpu_mem_usage=False,
                     **kwargs
                 )
             else:
                 tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
                 model = LlavaLlamaForCausalLM.from_pretrained(
                     model_path,
-                    low_cpu_mem_usage=True,
+                    low_cpu_mem_usage=False,
                     **kwargs
                 )
     else:
@@ -125,7 +142,7 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             # PEFT model
             from peft import PeftModel
             tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
-            model = AutoModelForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, **kwargs)
+            model = AutoModelForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=False, **kwargs)
             print(f"Loading LoRA weights from {model_path}")
             model = PeftModel.from_pretrained(model, model_path)
             print(f"Merging weights")
@@ -136,10 +153,10 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             use_fast = False
             if 'mpt' in model_name.lower():
                 tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
-                model = AutoModelForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, trust_remote_code=True, **kwargs)
+                model = AutoModelForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=False, trust_remote_code=True, **kwargs)
             else:
                 tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
-                model = AutoModelForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs)
+                model = AutoModelForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=False, **kwargs)
 
     image_processor = None
 

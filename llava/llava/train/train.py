@@ -34,7 +34,7 @@ from llava.train.llava_trainer import LLaVATrainer
 
 from llava import conversation as conversation_lib
 from llava.model import *
-from llava.mm_utils import tokenizer_ecg_token
+from llava.mm_utils import tokenizer_ecg_token, get_model_name_from_path
 
 import wfdb
 import numpy as np
@@ -710,25 +710,21 @@ class LazySupervisedDataset(Dataset):
             ecg_folder = self.data_args.ecg_folder
             # processor = self.data_args.ecg_processor
             # image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
-            try:
-                ecg = wfdb.rdsamp(os.path.join(ecg_folder, ecg_file))[0]
-                ecg[np.isnan(ecg)] = 0
-                ecg[np.isinf(ecg)] = 0
-                ecg = torch.Tensor(np.transpose(ecg, (1, 0)).astype(np.float32))
-                c, length = ecg.shape
-                seq_length = self.data_args.ecg_seq_length
-                if length < seq_length:
-                    new_ecg = torch.zeros((c, seq_length))
-                    new_ecg[:, 0:length] = ecg
-                    ecg = new_ecg
-                elif length > seq_length:
-                    ecg = ecg[:, 0:seq_length]
-                sources = preprocess_multimodal(
-                    copy.deepcopy([e["conversations"] for e in sources]),
-                    self.data_args)
-            except FileNotFoundError as e:
-                new_index = (i + 1) % len(self)
-                return self.__getitem__(new_index)
+            ecg = wfdb.rdsamp(os.path.join(ecg_folder, ecg_file))[0]
+            ecg[np.isnan(ecg)] = 0
+            ecg[np.isinf(ecg)] = 0
+            ecg = torch.Tensor(np.transpose(ecg, (1, 0)).astype(np.float32))
+            c, length = ecg.shape
+            seq_length = self.data_args.ecg_seq_length
+            if length < seq_length:
+                new_ecg = torch.zeros((c, seq_length))
+                new_ecg[:, 0:length] = ecg
+                ecg = new_ecg
+            elif length > seq_length:
+                ecg = ecg[:, 0:seq_length]
+            sources = preprocess_multimodal(
+                copy.deepcopy([e["conversations"] for e in sources]),
+                self.data_args)
         else:
             sources = copy.deepcopy([e["conversations"] for e in sources])
         data_dict = preprocess(
@@ -996,6 +992,91 @@ def train(attn_implementation=None):
     else:
         safe_save_model_for_hf_trainer(trainer=trainer,
                                        output_dir=training_args.output_dir)
+        
+        
+def test(attn_implementation=None):
+    
+    parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
+    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    data_args.is_multimodal = True
+    
+    model_path = "/home/chaewon/medicalai/my-ecg-chat/llava/checkpoints/llava-llama-2-7b-chat-finetune_lora"
+    model_name = get_model_name_from_path(model_path)
+    
+    from llava.model.builder import load_pretrained_model
+    
+    tokenizer, model, ecg_tower, context_len = load_pretrained_model(
+        model_path=model_path,
+        model_base=model_args.model_name_or_path,
+        model_name=model_name,
+        device_map=None
+    )
+    
+    model.eval()
+    model.cuda()
+    
+    if training_args.bf16:
+        model.to(torch.bfloat16)
+    elif training_args.fp16:
+        model.to(torch.float16)
+    
+    run_generation_test(model, tokenizer, data_args)
+    
+    
+def run_generation_test(model, tokenizer, data_args):
+    test_ecg_path = "/data/ecg/public/mimic-iv-ecg/physionet.org/files/mimic-iv-ecg/1.0/files/p1000/p10009035/s41001146/41001146" # 확장자 제외
+    
+    ecg = wfdb.rdsamp(test_ecg_path)[0]
+    ecg[np.isnan(ecg)] = 0
+    ecg[np.isinf(ecg)] = 0
+    ecg = torch.Tensor(np.transpose(ecg, (1, 0)).astype(np.float32))
+    
+    c, length = ecg.shape
+    seq_length = data_args.ecg_seq_length
+    if length < seq_length:
+        new_ecg = torch.zeros((c, seq_length))
+        new_ecg[:, 0:length] = ecg
+        ecg = new_ecg
+    else:
+        ecg = ecg[:, 0:seq_length]
+    
+    ecg_tensor = ecg.unsqueeze(0).to(device='cuda', dtype=torch.bfloat16)
+
+    prompt = f"{DEFAULT_ECG_TOKEN}\nDescribe the ECG findings in detail and provide the clinical diagnosis."
+    
+    input_ids = tokenizer_ecg_token(
+        prompt, 
+        tokenizer, 
+        ECG_TOKEN_INDEX, 
+        return_tensors='pt'
+    ).unsqueeze(0).to(device='cuda')
+
+    print(f"질문: {prompt}")
+    with torch.inference_mode():
+        model.eval()
+        output_ids = model.generate(
+            inputs=input_ids,
+            ecgs=ecg_tensor,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
+            max_new_tokens=512,
+            min_new_tokens=20,
+            repetition_penalty=1.2,
+            use_cache=True,
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+        )
+
+    input_token_len = input_ids.shape[1]
+    n_diff_input_output = (output_ids.shape[1] - input_token_len)
+    
+    outputs = tokenizer.batch_decode(
+        output_ids[:, input_token_len:], 
+        skip_special_tokens=True
+    )[0]
+    
+    print(outputs.strip())
 
 
 if __name__ == "__main__":
