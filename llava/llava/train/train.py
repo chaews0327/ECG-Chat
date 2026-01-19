@@ -1024,7 +1024,7 @@ def test(attn_implementation=None):
     
     
 def run_generation_test(model, tokenizer, data_args):
-    test_ecg_path = "/data/ecg/public/mimic-iv-ecg/physionet.org/files/mimic-iv-ecg/1.0/files/p1000/p10009035/s41001146/41001146" # 확장자 제외
+    test_ecg_path = "/data/ecg/public/mimic-iv-ecg/physionet.org/files/mimic-iv-ecg/1.0/files/p1000/p10000898/s43492795/43492795"
     
     ecg = wfdb.rdsamp(test_ecg_path)[0]
     ecg[np.isnan(ecg)] = 0
@@ -1042,7 +1042,7 @@ def run_generation_test(model, tokenizer, data_args):
     
     ecg_tensor = ecg.unsqueeze(0).to(device='cuda', dtype=torch.bfloat16)
 
-    prompt = f"{DEFAULT_ECG_TOKEN}\nDescribe the ECG findings in detail and provide the clinical diagnosis."
+    prompt = f"{DEFAULT_ECG_TOKEN}\nWhat's revealed by my ECG?"
     
     input_ids = tokenizer_ecg_token(
         prompt, 
@@ -1068,15 +1068,10 @@ def run_generation_test(model, tokenizer, data_args):
             eos_token_id=tokenizer.eos_token_id,
         )
 
-    input_token_len = input_ids.shape[1]
-    n_diff_input_output = (output_ids.shape[1] - input_token_len)
-    
-    outputs = tokenizer.batch_decode(
-        output_ids[:, input_token_len:], 
-        skip_special_tokens=True
-    )[0]
-    
-    print(outputs.strip())
+    full_output = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+
+    print("---")
+    print(full_output.strip())
 
 
 if __name__ == "__main__":
