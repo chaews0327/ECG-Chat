@@ -1024,6 +1024,8 @@ def test(attn_implementation=None):
     
     
 def run_generation_test(model, tokenizer, data_args):
+    # test_ecg_path = "/data/ecg/public/mimic-iv-ecg/physionet.org/files/mimic-iv-ecg/1.0/files/p1000/p10000117/s45090959/45090959"
+    # test_ecg_path = "/data/ecg/public/mimic-iv-ecg/physionet.org/files/mimic-iv-ecg/1.0/files/p1000/p10000635/s42947358/42947358"
     test_ecg_path = "/data/ecg/public/mimic-iv-ecg/physionet.org/files/mimic-iv-ecg/1.0/files/p1000/p10000898/s43492795/43492795"
     
     ecg = wfdb.rdsamp(test_ecg_path)[0]
@@ -1042,7 +1044,7 @@ def run_generation_test(model, tokenizer, data_args):
     
     ecg_tensor = ecg.unsqueeze(0).to(device='cuda', dtype=torch.bfloat16)
 
-    prompt = f"{DEFAULT_ECG_TOKEN}\nWhat's revealed by my ECG?"
+    prompt = f"{DEFAULT_ECG_TOKEN}\nCould you please help me explain my ECG?"
     
     input_ids = tokenizer_ecg_token(
         prompt, 
