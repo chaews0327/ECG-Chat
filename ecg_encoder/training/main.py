@@ -21,6 +21,8 @@ from ecg_encoder.training.transform import ecg_transform, PreprocessCfg
 from ecg_encoder.training.loss import create_loss
 from ecg_encoder.training.scheduler import cosine_lr
 
+from ecg_encoder.model.melp.models.melp_model import MELPModel
+
 
 LATEST_CHECKPOINT_NAME = "epoch_10.pt"
 
@@ -89,6 +91,71 @@ def main(args):
         (preprocess_train, preprocess_val),
         tokenizer=tokenizer,
     )
+    
+    import matplotlib.pyplot as plt
+    import torch
+    import numpy as np
+    import wfdb
+
+    def debug_visualize_stages(dataset, preprocess_train, preprocess_val):
+        """
+        1. 파일에서 직접 Raw 로드
+        2. preprocess_val 적용 (Norm + Resize)
+        3. preprocess_train 적용 (Aug + Norm + Resize)
+        """
+        # 1. 원본 데이터 직접 로드 (첫 번째 샘플)
+        raw_path = dataset.path[0]
+        print(raw_path)
+        raw_data, _ = wfdb.rdsamp(raw_path)
+        np.save("test.npz",raw_data)
+        raw_data[np.isnan(raw_data)] = 0
+        raw_data[np.isinf(raw_data)] = 0
+        
+        # 모델 입력 규격에 맞게 변환 (C, T) -> (1, C, T)
+        raw_tensor = torch.Tensor(raw_data.astype(np.float32)).T.unsqueeze(0)
+        
+        # 2. 단계별 변환 적용 (In-place 방지를 위해 clone 사용)
+        # (1) Original (Normalize/Resize 전)
+        # (2) Val Transform (Normalize + Resize)
+        with torch.no_grad():
+            norm_res_data = preprocess_val(raw_tensor.clone()).squeeze(0)
+            # (3) Train Transform (Augmentation + Normalize + Resize)
+            # 증강 확률이 p=0.5 등이면 여러 번 시도해서 바뀐 걸 찾아야 할 수 있음
+            aug_data = preprocess_train(raw_tensor.clone()).squeeze(0)
+
+        # 3. 시각화 (Lead I 기준)
+        fig, axes = plt.subplots(3, 1, figsize=(15, 12), sharex=False)
+        lead_idx = 0 
+        
+        # Plot 1: Original Raw
+        axes[0].plot(raw_data[:, lead_idx], color='black', linewidth=0.7)
+        axes[0].set_title(f"Raw Signal (from {os.path.basename(raw_path)})")
+        
+        # Plot 2: Normalized & Resized
+        axes[1].plot(norm_res_data[lead_idx].numpy(), color='blue', linewidth=0.7)
+        axes[1].set_title("Normalization & Resize")
+        
+        # Plot 3: Augmented
+        axes[2].plot(aug_data[lead_idx].numpy(), color='red', linewidth=0.7)
+        axes[2].set_title("Normalization & Resize & Augmentation")
+
+        for ax in axes:
+            ax.grid(True, linestyle='--', alpha=0.5)
+            ax.set_ylabel("Amplitude")
+
+        plt.tight_layout()
+        save_path = "transformation_steps.png"
+        plt.savefig(save_path)
+        print(f"=== Debug plot saved to {save_path} ===")
+    
+    if 'train' in data:
+        print("시각화 디버깅을 시작합니다...")
+        # data['train'].dataloader.dataset은 ECGTextDataset 객체입니다.
+        debug_visualize_stages(
+            data['train'].dataloader.dataset, 
+            preprocess_train, 
+            preprocess_val
+        )
     
     # Test 시 optimizer 및 scaler 미정의
     if args.eval:
@@ -185,32 +252,37 @@ def main(args):
 
 
 def get_ecg_encoder(model_name, checkpoint_path, device):
-    model_kwargs = {}
-    parent_dir = Path(__file__).resolve().parent.parent
-    with open(os.path.join(parent_dir, "model/config.json"), "r") as f:
-        model_config = json.load(f)
+    model = MELPModel(
+        ecg_encoder_name="ecgfm", 
+        ecg_encoder_weight=checkpoint_path, # 체크포인트 경로 전달
+        device=device
+    )
+    
+    # 2. MELP 내부에 이미 가중치 로드 로직이 포함되어 있습니다 (init_ecg_encoder)
+    # 만약 위 생성자에서 로드가 안 된다면 아래처럼 수동 로드
+    # checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    # model.load_state_dict(checkpoint['state_dict'], strict=False)
 
-    model = CoCa(model_config).to(device)
-    cfg_dict = get_model_preprocess_cfg(model.ecg)
-    pp_cfg = PreprocessCfg(**cfg_dict) 
-    preprocess_val = ecg_transform(pp_cfg, is_train=False)
+    # 3. 인코더 모듈만 추출
+    ecg_encoder = model.ecg_encoder 
+    
+    # 4. 전처리 도구(preprocess)는 MELP 내부 형식을 따름
+    # MELP는 별도의 preprocess_val 객체 대신 모델 내부에 로직이 녹아있을 수 있음
+    preprocess_val = None 
+    
+    # 5. 모델 설정 반환 (LLaVA의 Tower가 참조할 수 있게)
+    model_config = {
+        "ecg_cfg": {
+            "width": 768, # ECGFM small 기준
+            "seq_length": 5000,
+            "patch_size": 50 # 아키텍처에 따라 확인 필요
+        }
+    }
 
-    model.to_empty(device=device)
-    model = model.ecg
-    checkpoint = torch.load(checkpoint_path, map_location='cpu')
-
-    sd = checkpoint["state_dict"]
-    sd_new = {}
-    for k, v in sd.items():
-        if k.startswith('ecg'):
-            sd_new[k[len('ecg.'):]] = v
-
-    model.load_state_dict(sd_new)
-
-    logging.info(f"=> loaded checkpoint '{checkpoint_path}' ")
-
-    model.lock()
-    return model, preprocess_val, model_config
+    ecg_encoder.to(device)
+    ecg_encoder.eval() # 추론 모드
+    
+    return ecg_encoder, preprocess_val, model_config
     
     
 if __name__=="__main__":

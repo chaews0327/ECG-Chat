@@ -26,8 +26,8 @@ class CLIPECGTower(nn.Module):
         self.hidden_size = ecg_config.get('width', 768)
         self.seq_length = ecg_config.get('seq_length', 5000)
         self.patch_size = ecg_config.get('patch_size', 50)
-        self.device = self.ecg_tower.state_dict()['class_embedding'].device
-        self.dtype = self.ecg_tower.state_dict()['class_embedding'].dtype
+        self.device = next(self.ecg_tower.parameters()).device
+        self.dtype = next(self.ecg_tower.parameters()).dtype
 
         self.num_patches_per_side = self.seq_length // self.patch_size
         self.num_patches = self.seq_length // self.patch_size
@@ -44,21 +44,48 @@ class CLIPECGTower(nn.Module):
         self.is_loaded = True
         print("Loaded {} model".format(self.ecg_tower_name))
 
+
     @torch.no_grad()
     def forward(self, ecgs):
-        self.device = self.ecg_tower.state_dict()['class_embedding'].device
-        self.dtype = self.ecg_tower.state_dict()['class_embedding'].dtype
-        if type(ecgs) is list:
+        ref_param = next(self.ecg_tower.parameters())
+        self.device = ref_param.device
+        self.dtype = ref_param.dtype
+
+        if isinstance(ecgs, list):
             ecg_features = []
             for ecg in ecgs:
-                ecg_feature = self.ecg_tower(ecg.to(device=self.device, dtype=self.dtype).unsqueeze(0), output_last_transformer_layer=True)
-                ecg_feature = ecg_feature.to(ecg.dtype)
-                ecg_features.append(ecg_feature)
+                with torch.no_grad():
+                    with torch.cuda.amp.autocast(enabled=True, dtype=self.dtype):
+                        r, b, t = self.ecg_tower._encode_ecg(ecg.to(device=self.device, dtype=torch.float32).unsqueeze(0))
+                        feat = self._combine_ecg_features(r, b, t)
+                ecg_features.append(feat.to(self.dtype))
         else:
-            ecg_features = self.ecg_tower(ecgs.to(device=self.device, dtype=self.dtype), output_last_transformer_layer=True)
-            ecg_features = ecg_features.to(ecgs.dtype)
+            with torch.no_grad():
+                with torch.cuda.amp.autocast(enabled=True, dtype=self.dtype):
+                    r, b, t = self.ecg_tower._encode_ecg(ecgs.to(device=self.device, dtype=torch.float32))
+                    feat = self._combine_ecg_features(r, b, t)
+            ecg_features = feat.to(self.dtype)
 
         return ecg_features
+
+
+    def _combine_ecg_features(self, rhythm, beat, token):
+        if rhythm.dim() == 2:
+            rhythm = rhythm.unsqueeze(1)
+        
+        feats = [rhythm, beat, token]
+        max_dim = max(f.shape[-1] for f in feats)
+        
+        padded = []
+        for f in feats:
+            if f.shape[-1] < max_dim:
+                pad_size = max_dim - f.shape[-1]
+                p = torch.zeros((*f.shape[:-1], pad_size), device=f.device, dtype=f.dtype)
+                f = torch.cat([f, p], dim=-1)
+            padded.append(f)
+        
+        return torch.cat(padded, dim=1) # [Batch, Total_Tokens, 768]
+
 
     @property
     def dummy_feature(self):
